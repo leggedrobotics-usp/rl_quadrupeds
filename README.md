@@ -1,2 +1,5 @@
-# rl_quadrupeds
-Development of Reinforcement Learning policies for quadruped robots.
+# RL Quadrupeds
+
+A library containing Reinforcement Learning algorithms to train certain quadrupeds policies.
+
+- TODO: Write installation instructions

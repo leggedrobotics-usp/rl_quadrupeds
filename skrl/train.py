@@ -100,7 +100,7 @@ from isaaclab_rl.skrl import SkrlVecEnvWrapper
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
-import rl_quadrupeds.tasks  # noqa: F401
+import tasks  # noqa: F401
 
 # config shortcuts
 algorithm = args_cli.algorithm.lower()

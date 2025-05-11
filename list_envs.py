@@ -27,8 +27,7 @@ simulation_app = app_launcher.app
 import gymnasium as gym
 from prettytable import PrettyTable
 
-import rl_quadrupeds.tasks  # noqa: F401
-
+import tasks
 
 def main():
     """Print all environments registered in `rl_quadrupeds` extension."""
@@ -44,11 +43,13 @@ def main():
     index = 0
     # acquire all Isaac environments names
     for task_spec in gym.registry.values():
-        if "Template-" in task_spec.id:
-            # add details to table
-            table.add_row([index + 1, task_spec.id, task_spec.entry_point, task_spec.kwargs["env_cfg_entry_point"]])
-            # increment count
-            index += 1
+        if "env_cfg_entry_point" not in task_spec.kwargs:
+            continue
+            
+        # add details to table
+        table.add_row([index + 1, task_spec.id, task_spec.entry_point, task_spec.kwargs["env_cfg_entry_point"]])
+        # increment count
+        index += 1
 
     print(table)
 

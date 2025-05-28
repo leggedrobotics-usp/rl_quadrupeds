@@ -11,7 +11,8 @@ import gymnasium as gym
 
 gym.register(
     id="Go1-Locomotion",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    # entry_point="isaaclab.envs:ManagerBasedRLEnv",
+    entry_point="isaaclab_extensions.envs.custom:CustomizableManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
         "env_cfg_entry_point": f"{__name__}.locomotion_go1_env_cfg:Go1LocomotionEnvCfg",

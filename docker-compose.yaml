@@ -2,6 +2,7 @@ services:
   ros2_humble_isaaclab:
     image: legro/ros2_humble_isaaclab
     runtime: nvidia
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
@@ -10,6 +11,7 @@ services:
       - ${OV_CACHE_PATH}:/root/.cache/ov
       - ${NV_CACHE_PATH}:/root/.nvidia/omniverse
       - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./docker/entrypoint.sh:/entrypoint.sh
     network_mode: "host"
     deploy:
       resources:

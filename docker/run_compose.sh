@@ -17,5 +17,8 @@ else
   export NV_CACHE_PATH="isaac_nv_cache"
 fi
 
-# Launch the container with an interactive shell
-docker compose run --rm ros2_humble_isaaclab bash
+# Optional REPO_BRANCH argument (defaults to 'main' if not specified)
+REPO_BRANCH="${1:-main}"
+
+# Launch the container with an interactive shell and REPO_BRANCH env var
+docker compose run --rm -e REPO_BRANCH="$REPO_BRANCH" ros2_humble_isaaclab bash

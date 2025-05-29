@@ -99,7 +99,7 @@ class RewardsCfg:
     # )
     _based_height_l2_cmd = RewTerm(
         func=track_base_height_l2_cmd,
-        weight=0.0,
+        weight=-3.0,
         params={
             "command_name": "body_height_orientation_cmd",
             "sensor_cfg": SceneEntityCfg("height_scanner"),
@@ -107,7 +107,7 @@ class RewardsCfg:
     )
     _track_base_orientation = RewTerm(
         func=track_base_orientation,
-        weight=0.0,
+        weight=-3.0,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -119,7 +119,7 @@ class RewardsCfg:
     )
     raibert_footswing = RewTerm(
         func=RaibertHeuristic,
-        weight=-1.0,
+        weight=-5.0,
         params={
             "command_name": "base_velocity",
             "gait_stance_distances_cmd": "gait_stance_distances_cmd",
@@ -131,7 +131,7 @@ class RewardsCfg:
     )
     _track_footswing_height = RewTerm(
         func=track_footswing_height,
-        weight=-1.0,
+        weight=-5.0,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -147,7 +147,7 @@ class RewardsCfg:
     _ang_vel_xy_l2 = RewTerm(func=ang_vel_xy_l2, weight=-0.05)
     _track_feet_slip = RewTerm(
         func=track_feet_slip,
-        weight=-0.01,
+        weight=0,
         params={
             "sensor_cfg": SceneEntityCfg(
                 "contact_forces",
@@ -183,7 +183,7 @@ class RewardsCfg:
     _track_joint_positions_l2 = RewTerm(func=track_joint_positions_l2, weight=-0.05)
     _track_feet_contact_velocity = RewTerm(
         func=track_feet_contact_velocity,
-        weight=0.0,
+        weight=-2.0,
         params={
             "sensor_cfg": SceneEntityCfg(
                 "contact_forces",
@@ -197,7 +197,7 @@ class RewardsCfg:
     )
     _track_feet_contact_forces = RewTerm(
         func=track_feet_contact_forces,
-        weight=0.0,
+        weight=-2.0,
         params={
             "sensor_cfg": SceneEntityCfg(
                 "contact_forces",

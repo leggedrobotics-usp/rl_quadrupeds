@@ -31,23 +31,3 @@ class Go1LocomotionEnvCfg(ManagerBasedRLEnvCfg):
         # simulation settings
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
-
-    # def _log_to_tensorboard(self) -> None:
-    # from torch.utils.tensorboard import SummaryWriter
-    #     for i in range(4):
-    #         self.writer.add_scalar(
-    #             f"desired_contact_states/foot_indices/{['FR', 'FL', 'RR', 'RL'][i]}",
-    #             env.foot_indices[0, i],
-    #             global_step=self.step,
-    #         )
-    #         self.writer.add_scalar(
-    #             f"desired_contact_states/clock_inputs/{['FR', 'FL', 'RR', 'RL'][i]}",
-    #             env.clock_inputs[0, i],
-    #             global_step=self.step,
-    #         )
-    #         self.writer.add_scalar(
-    #             f"desired_contact_states/desired_contact_states/{['FR', 'FL', 'RR', 'RL'][i]}",
-    #             self.desired_contact_states[0, i],
-    #             global_step=self.step,
-    #         )
-    #     self.step += 1

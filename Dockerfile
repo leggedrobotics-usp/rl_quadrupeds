@@ -6,15 +6,28 @@ ADD https://github.com/isaac-sim/IsaacLab/archive/refs/tags/v2.1.0.zip /isaclab.
 ENV ISAACSIM_PATH="/isaacsim" \
     ISAACSIM_PYTHON_EXE="/isaacsim/python.sh" \
     ISAACLAB_FOLDER="/IsaacLab" \
-    ROS_WS=/ros2_ws
+    ROS_WS=/ros2_ws \
+    ROS_DOMAIN_ID=0 \
+    RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
 
     # ===== SYSTEM DEPENDENCIES =====
-RUN apt update && apt install -y \
+    # An update is necessary before installing software-properties-common
+RUN apt update && \
+    apt install software-properties-common -y && \
+    add-apt-repository universe && \
+    apt update && \
+    apt install -y \
     vulkan-tools \
     unzip \
     cmake \
     build-essential \
-    git
+    git \
+    curl \
+    # Enables communication between ROS2 nodes
+    ros-humble-rmw-cyclonedds-cpp
+    # ===== ROS2 =====
+RUN mkdir -p $ROS_WS/src && \
+    echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
     # ===== ISAACSIM SETUP =====
 RUN unzip /isaacsim/isaac-sim.zip -d /isaacsim && \
     rm /isaacsim/isaac-sim.zip && \
@@ -25,10 +38,6 @@ RUN unzip /isaclab.zip -d / && \
     mv /IsaacLab-2.1.0 /IsaacLab && \
     ln -s $ISAACSIM_PATH /IsaacLab/_isaac_sim && \
     export TERM=xterm && /IsaacLab/isaaclab.sh --install
-    # ===== ROS =====
-RUN . /opt/ros/humble/setup.sh && \
-    mkdir -p $ROS_WS/src && \
-    echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
     # ===== ALIAS SETUP =====
 RUN echo "alias isaacsim='/isaacsim/isaac-sim.sh'" >> ~/.bashrc && \
     echo "alias isaaclab='/IsaacLab/isaaclab.sh'" >> ~/.bashrc && \

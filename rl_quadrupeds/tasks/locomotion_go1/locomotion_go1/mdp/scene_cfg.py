@@ -1,13 +1,14 @@
 from isaaclab.utils import configclass
-from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.assets import AssetBaseCfg
 import isaaclab.sim as sim_utils
-from isaaclab.sensors import ContactSensorCfg, RayCasterCfg, patterns
 
-from quadrupeds_assets.go1 import UNITREE_GO1_CFG
+from isaaclab_extensions.scene.interactive_scene_cfg import InteractiveSceneCfg
+from isaaclab_extensions.sensors.contact_sensor.contact_sensor_cfg import ContactSensorCfg
+
+from quadrupeds_mdp.assets.go1 import UNITREE_GO1_CFG
 
 @configclass
-class Go1LocomotionSceneCfg(InteractiveSceneCfg):
+class Go1LocomotionSceneCfg(InteractiveSceneCfg):   
     ground = AssetBaseCfg(
         prim_path="/World/ground",
         spawn=sim_utils.GroundPlaneCfg(size=(1000, 1000))
@@ -21,12 +22,4 @@ class Go1LocomotionSceneCfg(InteractiveSceneCfg):
         prim_path="{ENV_REGEX_NS}/Robot/.*", 
         history_length=3, 
         track_air_time=True
-    )
-    height_scanner = RayCasterCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/trunk",
-        offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20.0)),
-        attach_yaw_only=True,
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.05, size=[0.1, 0.1]),
-        debug_vis=False,
-        mesh_prim_paths=["/World/ground"],
     )

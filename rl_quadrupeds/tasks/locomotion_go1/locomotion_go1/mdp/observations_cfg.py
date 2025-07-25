@@ -4,7 +4,6 @@ from isaaclab.envs.mdp import (                 # MDP utils
     generated_commands,                         # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.mdp.html#isaaclab.envs.mdp.observations.generated_commands
 )
 from isaaclab.envs.mdp.observations import (    # MDP observations
-    height_scan,                                # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.mdp.html#isaaclab.envs.mdp.observations.height_scan
     joint_pos_rel,                              # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.mdp.html#isaaclab.envs.mdp.observations.joint_pos_rel
     joint_vel_rel,                              # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.mdp.html#isaaclab.envs.mdp.observations.joint_vel_rel
     last_action,                                # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.envs.mdp.html#isaaclab.envs.mdp.observations.last_action
@@ -12,19 +11,17 @@ from isaaclab.envs.mdp.observations import (    # MDP observations
 )
 from isaaclab.managers import (
     ObservationGroupCfg as ObsGroup, 
-    ObservationTermCfg as ObsTerm,
-    SceneEntityCfg
+    ObservationTermCfg as ObsTerm
 )
 from isaaclab.utils import configclass
 from isaaclab.utils.noise import AdditiveUniformNoiseCfg as Unoise
 
-from quadrupeds_assets.gaits import (
+from quadrupeds_mdp.assets.gaits import (
     WTWCommandFootStates
 )
 
 @configclass
 class ObservationsCfg:
-
     @configclass
     class PolicyCfg(ObsGroup):
         # Commands
@@ -44,30 +41,22 @@ class ObservationsCfg:
                 "kappa": 0.07,
             }
         )
-
         _projected_gravity = ObsTerm(func=projected_gravity, noise=Unoise(n_min=-0.1, n_max=0.1))
         joint_pos = ObsTerm(func=joint_pos_rel, noise=Unoise(n_min=-0.02, n_max=0.02))
         joint_vel = ObsTerm(func=joint_vel_rel, noise=Unoise(n_min=-1.5, n_max=1.5), scale=0.05)
         actions = ObsTerm(func=last_action, noise=Unoise(n_min=-0.01, n_max=0.01))
-        _base_lin_vel = ObsTerm(func=base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
+        # _base_lin_vel = ObsTerm(func=base_lin_vel, noise=Unoise(n_min=-0.1, n_max=0.1))
         _base_ang_vel = ObsTerm(func=base_ang_vel, noise=Unoise(n_min=-0.2, n_max=0.2))
-        
-        height_scan = ObsTerm(
-            func=height_scan,
-            params={"sensor_cfg": SceneEntityCfg("height_scanner")},
-            noise=Unoise(n_min=-0.1, n_max=0.1),
-            clip=(-1.0, 1.0),
-        )
 
         def __post_init__(self):
             self.enable_corruption = True       # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ObservationGroupCfg.enable_corruption
             self.concatenate_terms = True       # https://isaac-sim.github.io/IsaacLab/main/source/api/lab/isaaclab.managers.html#isaaclab.managers.ObservationGroupCfg.concatenate_terms
 
+    policy: PolicyCfg = PolicyCfg()
+
+    # Check sim2real perfomance and # uncomment to use the value observation group.
     # @configclass
     # class ValueCfg(ObsGroup):
     #     _projected_gravity = ObsTerm(func=projected_gravity, noise=Unoise(n_min=-0.1, n_max=0.1))
     #     _oi = ObsTerm(func=oi)
-
-    # observation groups
-    policy: PolicyCfg = PolicyCfg()
     # value: ValueCfg = ValueCfg()

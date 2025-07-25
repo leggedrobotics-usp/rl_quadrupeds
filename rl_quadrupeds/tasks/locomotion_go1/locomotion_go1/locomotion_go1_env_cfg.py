@@ -31,3 +31,11 @@ class Go1LocomotionEnvCfg(ManagerBasedRLEnvCfg):
         # simulation settings
         self.sim.dt = 0.005
         self.sim.render_interval = self.decimation
+
+@configclass
+class Go1LocomotionEnvCfg_PLAY(Go1LocomotionEnvCfg):
+    def __post_init__(self) -> None:
+        super().__post_init__()
+
+        # disable randomization for play
+        self.observations.policy.enable_corruption = False

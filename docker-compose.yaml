@@ -3,24 +3,31 @@ services:
     image: legro/ros2_humble_isaaclab
     runtime: nvidia
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
+    stdin_open: true
+    tty: true
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=all
       - DISPLAY=${DISPLAY}
+      - ROS_DOMAIN_ID=42
+      - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     volumes:
-      - ${OV_CACHE_PATH}:/root/.cache/ov
-      - ${NV_CACHE_PATH}:/root/.nvidia/omniverse
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ./docker/entrypoint.sh:/entrypoint.sh
+      - ./ros2/src:/ros2_ws/src
+      - ./rl_quadrupeds:/rl_quadrupeds
+      - ./docker/.cache/isaacsim/cache/kit:/isaac-sim/kit/cache:rw
+      - ./docker/.cache/isaacsim/cache/ov:/root/.cache/ov:rw
+      - ./docker/.cache/isaacsim/cache/pip:/root/.cache/pip:rw
+      - ./docker/.cache/isaacsim/cache/glcache:/root/.cache/nvidia/GLCache:rw
+      - ./docker/.cache/isaacsim/cache/computecache:/root/.nv/ComputeCache:rw
+      - ./docker/.cache/isaacsim/logs:/root/.nvidia-omniverse/logs:rw
+      - ./docker/.cache/isaacsim/data:/root/.local/share/ov/data:rw
+      - ./docker/.cache/isaacsim/documents:/root/Documents:rw
+      - /home/ltoschi/.cache/ov/hub:/root/.cache/ov/hub:rw
     network_mode: "host"
     deploy:
       resources:
         reservations:
           devices:
             - capabilities: [gpu]
-    stdin_open: true
-    tty: true
-
-volumes:
-  isaac_cache:
-  isaac_nv_cache:

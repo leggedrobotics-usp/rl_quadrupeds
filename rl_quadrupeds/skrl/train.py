@@ -95,11 +95,14 @@ from isaaclab.utils.assets import retrieve_file_path
 from isaaclab.utils.dict import print_dict
 from isaaclab.utils.io import dump_pickle, dump_yaml
 
-from isaaclab_rl.skrl import SkrlVecEnvWrapper
+from isaaclab_extensions.isaaclab_rl.skrl import SkrlVecEnvWrapper
 
 import isaaclab_tasks  # noqa: F401
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
+# If running in a Docker container, append the parent directory to sys.path
+if os.path.exists('/.dockerenv'):
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import tasks  # noqa: F401
 
 # config shortcuts

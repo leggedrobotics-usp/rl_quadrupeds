@@ -5,10 +5,7 @@ shopt -s expand_aliases
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RL_QUADRUPEDS_DIR="$SCRIPT_DIR"
 TASKS_DIR="$RL_QUADRUPEDS_DIR/tasks"
-ASSETS_DIR="$RL_QUADRUPEDS_DIR/quadrupeds_assets"
-REWARDS_DIR="$RL_QUADRUPEDS_DIR/quadrupeds_rewards"
-COMMANDS_DIR="$RL_QUADRUPEDS_DIR/quadrupeds_commands"
-OBSERVATIONS_DIR="$RL_QUADRUPEDS_DIR/quadrupeds_observations"
+QUADRUPEDS_MDP_DIR="$RL_QUADRUPEDS_DIR/quadrupeds_mdp"
 ISAACLAB_EXT_DIR="$RL_QUADRUPEDS_DIR/isaaclab_extensions"
 
 # Default values
@@ -97,10 +94,7 @@ process_package() {
 }
 
 # Process each package
-process_package "$ASSETS_DIR" "quadrupeds_assets"
-process_package "$REWARDS_DIR" "quadrupeds_rewards"
-process_package "$COMMANDS_DIR" "quadrupeds_commands"
-process_package "$OBSERVATIONS_DIR" "quadrupeds_observations"
+process_package "$QUADRUPEDS_MDP_DIR" "quadrupeds_mdp"
 process_package "$ISAACLAB_EXT_DIR" "isaaclab_extensions"
 
 echo "${ACTION^}ing packages in tasks directory..."

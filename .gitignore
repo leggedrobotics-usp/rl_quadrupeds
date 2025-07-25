@@ -60,3 +60,6 @@ _build
 
 # Pre-Trained Checkpoints
 /.pretrained_checkpoints/
+
+# Docker's IssacSim Cache
+docker/.cache

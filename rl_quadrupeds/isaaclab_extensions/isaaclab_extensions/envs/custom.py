@@ -1,8 +1,3 @@
-from isaaclab.envs import (
-    ManagerBasedEnv,
-    ManagerBasedRLEnv
-)
-
 from isaaclab.managers import (
     CommandManager,
     CurriculumManager,
@@ -11,8 +6,12 @@ from isaaclab.managers import (
 )
 
 from isaaclab_extensions.managers.reward import (
-    ExponentialRewardManager
+    ExponentialRewardManager,
+    NormalizedRewardManager
 )
+
+from isaaclab_extensions.envs.manager_based_env import ManagerBasedEnv
+from isaaclab_extensions.envs.manager_based_rl_env import ManagerBasedRLEnv
 
 class CustomizableManagerBasedRLEnv(ManagerBasedRLEnv):
     """
@@ -34,8 +33,9 @@ class CustomizableManagerBasedRLEnv(ManagerBasedRLEnv):
         self.termination_manager = TerminationManager(self.cfg.terminations, self)
         print("[INFO] Termination Manager: ", self.termination_manager)
         # -- reward manager
-        # self.reward_manager = RewardManager(self.cfg.rewards, self)
-        self.reward_manager = ExponentialRewardManager(self.cfg.rewards, self)
+        self.reward_manager = RewardManager(self.cfg.rewards, self)
+        # self.reward_manager = ExponentialRewardManager(self.cfg.rewards, self)
+        # self.reward_manager = NormalizedRewardManager(self.cfg.rewards, self)
         print("[INFO] Reward Manager: ", self.reward_manager)
         # -- curriculum manager
         self.curriculum_manager = CurriculumManager(self.cfg.curriculum, self)

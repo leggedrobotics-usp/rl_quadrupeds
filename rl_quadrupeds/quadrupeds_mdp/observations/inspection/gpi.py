@@ -1,136 +1,174 @@
-from typing import Sequence
+from typing import Sequence, Tuple
 import torch
 
 class OnlineGaussianProcess:
-    def __init__(self, max_points, input_dim, num_envs, num_objects, device,
-                 lengthscale=0.001, variance=1., noise=1e-3):
-        """
-        Runs E × M independent Gaussian Processes in a vectorized way.
+    """
+    Batched RFF GP (Bayesian linear regression in feature space), vectorized over
+    (num_envs × num_objects). Designed to avoid Python scalar extraction so it
+    plays nice with Dynamo/JIT (if you want to enable it later).
 
-        Args:
-            max_points (int): Maximum number of observations per GP (N).
-            input_dim (int): Input dimensionality (D).
-            num_envs (int): Number of environments (E).
-            num_objects (int): Number of objects per environment (M).
-            lengthscale (float): RBF kernel lengthscale.
-            variance (float): RBF kernel variance.
-            noise (float): Observation noise.
-            device (str): Torch device.
-        """
-        self.lengthscale = lengthscale
-        self.variance = variance
-        self.noise = noise
+    Args:
+        max_points: kept for API compatibility (unused here)
+        input_dim: D
+        num_envs: E
+        num_objects: M
+        device: torch device
+        lengthscale, variance, noise: kernel hyperparams
+        num_features: number of RFF features F (speed/accuracy trade-off)
+    """
+
+    def __init__(
+        self,
+        max_points: int,
+        input_dim: int,
+        num_envs: int,
+        num_objects: int,
+        device: torch.device,
+        lengthscale: float = 0.5 / 20.0,
+        variance: float = 1.0,
+        noise: float = 1e-2,
+        num_features: int = 256,
+        dtype: torch.dtype = torch.float32,
+    ):
         self.device = device
+        self.dtype = dtype
 
-        self.N = max_points
         self.D = input_dim
         self.E = num_envs
         self.M = num_objects
+        self.F = num_features
 
-        # Shapes:
-        # [E, M, N, D] — Inputs
-        self.X = torch.zeros(self.E, self.M, self.N, self.D, device=device)
-        # [E, M, N, 1] — Targets
-        self.Y = torch.zeros(self.E, self.M, self.N, 1, device=device)
-        # [E, M] — Counts
-        self.counts = torch.zeros(self.E, self.M, dtype=torch.long, device=device)
-        # [E, M, N] — Valid mask
-        self.masks = torch.zeros(self.E, self.M, self.N, device=device)
+        self.lengthscale = torch.tensor(lengthscale, device=device, dtype=dtype)
+        self.variance = torch.tensor(variance, device=device, dtype=dtype)
+        self.noise = torch.tensor(noise, device=device, dtype=dtype)
 
-        self.min_dist = 0.5/20.  # Minimum distance between points
+        # Random Fourier Features params
+        self.W = torch.randn(self.F, self.D, device=device, dtype=dtype) / self.lengthscale
+        self.b = 2.0 * torch.pi * torch.rand(self.F, device=device, dtype=dtype)
 
-    def _scale_inputs(self, X):
-        return X / self.lengthscale
+        # Per (E, M) accumulators
+        self.A = torch.eye(self.F, device=device, dtype=dtype).expand(self.E, self.M, self.F, self.F).clone()
+        self.bvec = torch.zeros(self.E, self.M, self.F, device=device, dtype=dtype)
 
-    def _rbf_kernel(self, X1, X2):
-        # X1, X2: [E, M, N1, D], [E, M, N2, D]
-        diff = X1.unsqueeze(3) - X2.unsqueeze(2)  # [E, M, N1, N2, D]
-        dist_sq = diff.pow(2).sum(-1)             # [E, M, N1, N2]
-        return self.variance * torch.exp(-0.5 * dist_sq)
+        self._posterior_dirty = torch.ones(self.E, self.M, dtype=torch.bool, device=device)
+        self._L = torch.zeros(self.E, self.M, self.F, self.F, device=device, dtype=dtype)
+        self._w_mean = torch.zeros(self.E, self.M, self.F, device=device, dtype=dtype)
 
-    def _apply_mask(self, K, mask1, mask2):
-        # K: [E, M, N1, N2], mask1: [E, M, N1], mask2: [E, M, N2]
-        return K * mask1.unsqueeze(3) * mask2.unsqueeze(2)
+    # ------------------------- Features -------------------------
 
-    def _compute_rbf(self, X1, X2, mask1, mask2):
-        K = self._rbf_kernel(self._scale_inputs(X1), self._scale_inputs(X2))
-        return self._apply_mask(K, mask1, mask2)
+    def _phi(self, x: torch.Tensor) -> torch.Tensor:
+        proj = torch.matmul(x, self.W.T) + self.b
+        return torch.sqrt(torch.tensor(2.0 / self.F, device=x.device, dtype=x.dtype)) * torch.cos(proj)
 
-    def _cholesky_solve(self, A, B, mask):
+    # ------------------------- Public API -----------------------
+
+    @torch.no_grad()
+    def predict(self, X_test: torch.Tensor, test_mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        A: [E, M, N, N], B: [E, M, N, 1], mask: [E, M, N]
-        """
-        E, M, N, _ = A.shape
-        eye = torch.eye(N, device=self.device).expand(E, M, N, N)
-        A_reg = A + self.noise * eye * mask.unsqueeze(-1) * mask.unsqueeze(-2) + 1e-6 * eye
-        L = torch.linalg.cholesky(A_reg)
-        return torch.cholesky_solve(B, L), L
-
-    def predict(self, X_test, test_mask):
-        """
-        Args:
-            X_test: [E, M, T, D] — test inputs
-            test_mask: [E, M, T] — mask for test points
+        X_test:    [E, M, T, D]
+        test_mask: [E, M, T] (bool)
 
         Returns:
-            mu: [E, M, T]
-            cov: [E, M, T, T]
+            mu:  [E, M, T]
+            cov: [E, M, T, T] (diagonal-filled; off-diagonals are zero to match your API)
         """
-        K_xx = self._compute_rbf(self.X, self.X, self.masks, self.masks)       # [E, M, N, N]
-        alpha, L = self._cholesky_solve(K_xx, self.Y, self.masks)              # [E, M, N, 1]
+        E, M, T, D = X_test.shape
+        B = E * M
 
-        K_xxs = self._compute_rbf(self.X, X_test, self.masks, test_mask)       # [E, M, N, T]
-        K_xsx = K_xxs.transpose(2, 3)                                          # [E, M, T, N]
-        K_xsxs = self._compute_rbf(X_test, X_test, test_mask, test_mask)       # [E, M, T, T]
+        self._ensure_posterior()
 
-        mu = torch.matmul(K_xsx, alpha).squeeze(-1)                            # [E, M, T]
-        v = torch.cholesky_solve(K_xxs, L)                                     # [E, M, N, T]
-        cov = K_xsxs - torch.matmul(K_xsx, v)                                  # [E, M, T, T]
+        Xb = X_test.view(B, T, D)
+        maskb = test_mask.view(B, T)
+
+        Phi = self._phi(Xb.reshape(-1, D)).view(B, T, self.F)
+        Phi = Phi * maskb.unsqueeze(-1)
+
+        w_mean = self._w_mean.view(B, self.F)
+
+        mu = torch.einsum("btf,bf->bt", Phi, w_mean) * torch.sqrt(self.variance)
+        mu = mu.view(E, M, T)
+
+        # Diagonal variance only
+        L = self._L.view(B, self.F, self.F)
+        v = torch.linalg.solve_triangular(L, Phi.transpose(1, 2), upper=False)
+        var_diag = (v ** 2).sum(dim=1) * self.variance  # [B, T]
+        var_diag = var_diag.view(E, M, T)
+
+        cov = torch.zeros(E, M, T, T, device=X_test.device, dtype=X_test.dtype)
+        idx = torch.arange(T, device=X_test.device)
+        cov[:, :, idx, idx] = var_diag
+
+        mu = torch.where(test_mask, mu, torch.zeros_like(mu))
+        cov = torch.where(test_mask.unsqueeze(-1) & test_mask.unsqueeze(-2), cov, torch.zeros_like(cov))
 
         return mu, cov
 
-    # Update with min_dist filtering (removing for now)
-    def update(self, x_new, y_new, object_mask):
+    @torch.no_grad()
+    def update(self, x_new: torch.Tensor, y_new: torch.Tensor, object_mask: torch.Tensor):
+        """
+        x_new:       [E, M, T, D]
+        y_new:       [E, M, T]
+        object_mask: [E, M]
+        """
         E, M, T, D = x_new.shape
-        env_ids, obj_ids = torch.where(object_mask > 0)
+        B = E * M
 
-        for e, m in zip(env_ids.tolist(), obj_ids.tolist()):
-            count = self.counts[e, m].item()
-            existing_count = int(self.masks[e, m].sum().item())
-            if existing_count == 0:
-                existing_X = None
-            else:
-                existing_X = self.X[e, m, :existing_count]  # [N_existing, D]
+        valid_mask = (y_new != 0.0)  # [E, M, T]
 
-            for t in range(T):
-                x = x_new[e, m, t]
+        Xb = x_new.view(B, T, D)
+        yb = y_new.view(B, T)
+        vb = valid_mask.view(B, T)
+        ob = object_mask.view(B)
 
-                # Skip padding
-                if torch.all(x == 0):
-                    continue
+        Phi = self._phi(Xb.reshape(-1, D)).view(B, T, self.F)
+        Phi = Phi * vb.unsqueeze(-1)
+        yb = yb * vb
 
-                # Check distance from all existing points
-                if existing_X is not None:
-                    dists = torch.norm(existing_X - x, dim=-1)  # [N_existing]
-                    if torch.any(dists < self.min_dist):
-                        continue  # Too close to an existing point
+        inv_noise2 = 1.0 / (self.noise ** 2)
 
-                idx = count % self.N
-                self.X[e, m, idx] = x
-                self.Y[e, m, idx, 0] = y_new[e, m, t]
-                self.masks[e, m, idx] = 1.0
-                count += 1
+        Pt = Phi.transpose(1, 2)
+        A_delta = inv_noise2 * torch.matmul(Pt, Phi)            # [B, F, F]
+        b_delta = inv_noise2 * torch.matmul(Pt, yb.unsqueeze(-1)).squeeze(-1)  # [B, F]
 
-                # Update the list of existing inputs for next comparisons
-                if existing_X is not None and idx < existing_count:
-                    existing_X[idx] = x  # Replace in-place if cyclic
-                else:
-                    existing_X = torch.cat([existing_X, x.unsqueeze(0)], dim=0) if existing_X is not None else x.unsqueeze(0)
+        A = self.A.view(B, self.F, self.F)
+        bvec = self.bvec.view(B, self.F)
 
-            self.counts[e, m] = min(self.N, count)
+        A[ob] = A[ob] + A_delta[ob]
+        bvec[ob] = bvec[ob] + b_delta[ob]
 
+        self._posterior_dirty.view(B)[ob] = True
+
+    @torch.no_grad()
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
-        self.X[env_ids] = 0.0
-        self.Y[env_ids] = 0.0
-        self.counts[env_ids] = 0
-        self.masks[env_ids] = 0.0
+        eye = torch.eye(self.F, device=self.device, dtype=self.dtype)
+        if env_ids is None:
+            self.A[:] = eye
+            self.bvec.zero_()
+            self._posterior_dirty.fill_(True)
+        else:
+            self.A[env_ids] = eye
+            self.bvec[env_ids] = 0.0
+            self._posterior_dirty[env_ids] = True
+
+    # ------------------------- Internals ------------------------
+
+    @torch.no_grad()
+    def _ensure_posterior(self):
+        dirty = self._posterior_dirty
+        if not dirty.any():
+            return
+        E, M, F = self.E, self.M, self.F
+        B = E * M
+
+        A = self.A.view(B, F, F)
+        b = self.bvec.view(B, F)
+        dirty_b = dirty.view(B)
+
+        L = torch.linalg.cholesky(A[dirty_b])
+        self._L.view(B, F, F)[dirty_b] = L
+
+        z = torch.linalg.solve_triangular(L, b[dirty_b].unsqueeze(-1), upper=False)
+        w = torch.linalg.solve_triangular(L.transpose(1, 2), z, upper=True).squeeze(-1)
+        self._w_mean.view(B, F)[dirty_b] = w
+
+        dirty.fill_(False)

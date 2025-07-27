@@ -52,11 +52,20 @@ def lidar_scan_hits_labels_flattened(
     All NaN, +inf, -inf values are replaced with `fill_value`.
     """
     sensor: BetterRayCaster = env.scene.sensors[sensor_cfg.name]
-    ray_hits = sensor.data.ray_hits_w  # [E, N, 3]
-    ray_hits = torch.nan_to_num(ray_hits, nan=fill_value, posinf=fill_value, neginf=fill_value)
 
-    hit_labels = sensor.data.hit_labels.unsqueeze(-1).float()  # [E, N, 1]
-    lidar_data = torch.cat([ray_hits, hit_labels], dim=-1)  # [E, N, 4]
-    
-    E, N, D = lidar_data.shape  # D=4
-    return lidar_data.view(E, N * D)  # [E, Lx4]
+    ray_hits = sensor.data.ray_hits_w  # [E, N, 3]
+    hit_labels = sensor.data.hit_labels  # [E, N]
+
+    # Replace NaN and infinities in place (if allowed)
+    torch.nan_to_num(ray_hits, nan=fill_value, posinf=fill_value, neginf=fill_value, out=ray_hits)
+
+    # Preallocate the final tensor
+    E, N, _ = ray_hits.shape
+    lidar_data = torch.empty((E, N, 4), device=ray_hits.device, dtype=ray_hits.dtype)
+
+    # Copy data without using cat (avoids reallocation)
+    lidar_data[..., :3] = ray_hits
+    lidar_data[..., 3] = hit_labels
+
+    # Flatten (should be cheap if contiguous)
+    return lidar_data.reshape(E, N * 4)

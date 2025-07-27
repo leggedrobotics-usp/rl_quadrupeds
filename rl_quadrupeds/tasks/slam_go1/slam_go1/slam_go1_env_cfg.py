@@ -25,7 +25,7 @@ class Go1SlamEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self) -> None:
         # general settings
         self.decimation = 4
-        self.episode_length_s = 10.0
+        self.episode_length_s = 60.0
         # viewer settings
         self.viewer.eye = (8.0, 0.0, 5.0)
         # simulation settings

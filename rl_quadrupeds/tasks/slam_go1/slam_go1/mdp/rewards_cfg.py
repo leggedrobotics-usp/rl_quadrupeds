@@ -25,12 +25,12 @@ from quadrupeds_mdp.rewards.velocity import vel_action_rate_l2
 class RewardsCfg:
     vel_action_rate_l2 = RewTerm(
         func=vel_action_rate_l2,
-        weight=-0.01
+        weight=-0.1
     )
 
     penalize_inspection_action = RewTerm(
         func=get_inspection_action,
-        weight=-0.1
+        weight=-100
     )
 
     overall_inspection_coverage = RewTerm(
@@ -40,7 +40,7 @@ class RewardsCfg:
 
     overall_inspection_coverage_gain = RewTerm(
         func=get_overall_inspection_coverage_gain,
-        weight=10.
+        weight=500.
     )
 
     unknown_inspection_points = RewTerm(
@@ -50,12 +50,12 @@ class RewardsCfg:
 
     env_exploration = RewTerm(
         func=get_env_exploration_percentage,
-        weight=0.1
+        weight=5
     )
 
     current_robot_viewpoint_not_visited = RewTerm(
         func=check_if_current_robot_viewpoint_not_visited,
-        weight=0.1
+        weight=100
     )
 
     # We penalize the agent for being alive because termination 
@@ -67,10 +67,10 @@ class RewardsCfg:
 
     inspection_done = RewTerm(
         func=get_if_inspection_done,
-        weight=100
+        weight=5000
     )
 
     illegal_contact = RewTerm(
         func=get_illegal_contact,
-        weight=-100
+        weight=-5000
     )

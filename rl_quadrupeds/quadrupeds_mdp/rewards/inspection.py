@@ -54,20 +54,11 @@ def get_unknown_inspection_points(env):
     Each object's unknown count is normalized by its number of contour points.
     """
     confidence = env.confidence  # shape: (num_envs, num_objects, num_points)
-    unknown_mask = (confidence < 1e-3)  # shape: (num_envs, num_objects, num_points)
+    unknown_mask = (confidence < 0.6)  # shape: (num_envs, num_objects, num_points)
     unknown_count = unknown_mask.sum(dim=-1).float()  # (num_envs, num_objects)
 
     num_points = confidence.shape[-1]
     normalized_unknowns = unknown_count / num_points  # (num_envs, num_objects)
 
     per_env_total = normalized_unknowns.sum(dim=-1)  # (num_envs,)
-    # print(per_env_total[:10])  # Debugging: print first 10 values
     return per_env_total
-
-def get_env_exploration_percentage(env):
-    """
-    Returns a 1D tensor of shape (num_envs,) indicating the percentage of the
-    positions of the environment that has been visited by the agent.
-    """
-    return env.env_exploration_proportion if hasattr(env, "env_exploration_proportion") \
-        else torch.zeros(env.num_envs, dtype=torch.float, device=env.device)

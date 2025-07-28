@@ -41,8 +41,8 @@ class ObjectInspectionCoverage(ManagerTermBase):
             num_envs=env.num_envs,
             num_objects=self.valid_object_ids.shape[0],
             device=env.device,
-            lengthscale=0.5 / 20.0,
-            variance=1.0,
+            lengthscale=0.01,
+            variance=5.0,
             noise=1e-2,
             num_features=128,    # <-- matches your change
             dtype=torch.float32,

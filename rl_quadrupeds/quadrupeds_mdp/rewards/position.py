@@ -252,3 +252,29 @@ def track_base_height_l2_cmd(
 
     # Compute the L2 squared penalty
     return torch.square(asset.data.root_pos_w[:, 2] - adjusted_target_height)
+
+def position_command_error_tanh(env: ManagerBasedRLEnv, std: float, command_name: str) -> torch.Tensor:
+    """Reward position tracking with tanh kernel."""
+    command = env.command_manager.get_command(command_name)
+    des_pos_b = command[:, :3]
+    distance = torch.norm(des_pos_b, dim=1)
+    return 1 - torch.tanh(distance / std)
+
+
+def heading_command_error_abs(env: ManagerBasedRLEnv, command_name: str) -> torch.Tensor:
+    """Penalize tracking orientation error."""
+    command = env.command_manager.get_command(command_name)
+    heading_b = command[:, 3]
+    return heading_b.abs()
+
+def viewpoint_action_rate_l2(
+    env: ManagerBasedRLEnv,
+) -> torch.Tensor:
+    """
+    Computes the L2 norm of the action rate of the robot viewpoints (pos + orientation)
+    """
+    return torch.sum(
+        torch.square(
+            env.action_manager._terms["viewpoint_action"].processed_actions - env.action_manager._terms["viewpoint_action"].last_actions
+        ), dim=1
+    )

@@ -1,0 +1,25 @@
+from isaaclab.utils import configclass
+
+from quadrupeds_mdp.actions.velocity_pretrained_locomotion import RobotVelocityActionTrainedLocomotionCfg
+
+from locomotion_go1.locomotion_go1_env_cfg import Go1LocomotionEnvCfg
+locomotion_cfg = Go1LocomotionEnvCfg()
+vel_ranges = locomotion_cfg.commands.base_velocity.ranges
+
+@configclass
+class ActionsCfg:
+    # When trying to control the robot manually, activate
+    # the manual_cmd below. 
+    hl_vel = RobotVelocityActionTrainedLocomotionCfg(
+        asset_name="robot",
+        policy_path="/rl_quadrupeds/logs/skrl/go1_locomotion/best_loc_2025-06-10_08-28-10_ppo_torch/policy.jit.pt",
+        low_level_decimation=4,
+        low_level_actions=locomotion_cfg.actions.joint_pos,
+        low_level_observations=locomotion_cfg.observations.policy,
+        v_linear_min=vel_ranges.lin_vel_x[0],
+        v_linear_max=vel_ranges.lin_vel_x[1],
+        v_angular_min=vel_ranges.ang_vel_z[0],
+        v_angular_max=vel_ranges.ang_vel_z[1],
+        debug_vis=False,
+        # manual_cmd="base_velocity"
+    )

@@ -13,6 +13,7 @@ from quadrupeds_mdp.rewards.inspection import (
 
 from quadrupeds_mdp.rewards.contact import get_illegal_contact
 from quadrupeds_mdp.rewards.inspection import (
+    get_known_inspection_points,
     get_unknown_inspection_points
 )
 from quadrupeds_mdp.rewards.exploration import (
@@ -28,34 +29,39 @@ class RewardsCfg:
         weight=-0.1
     )
 
-    penalize_inspection_action = RewTerm(
-        func=get_inspection_action,
-        weight=-100
-    )
+    # penalize_inspection_action = RewTerm(
+    #     func=get_inspection_action,
+    #     weight=-100
+    # )
 
     overall_inspection_coverage = RewTerm(
         func=get_overall_inspection_coverage,
-        weight=10.
+        weight=5.
     )
 
     overall_inspection_coverage_gain = RewTerm(
         func=get_overall_inspection_coverage_gain,
-        weight=500.
+        weight=50.
     )
 
-    unknown_inspection_points = RewTerm(
-        func=get_unknown_inspection_points,
-        weight=-10.
+    # unknown_inspection_points = RewTerm(
+    #     func=get_unknown_inspection_points,
+    #     weight=-50.
+    # )
+
+    known_inspection_points = RewTerm(
+        func=get_known_inspection_points,
+        weight=50.
     )
 
     env_exploration = RewTerm(
         func=get_env_exploration_percentage,
-        weight=5
+        weight=50
     )
 
     current_robot_viewpoint_not_visited = RewTerm(
         func=check_if_current_robot_viewpoint_not_visited,
-        weight=100
+        weight=200
     )
 
     # We penalize the agent for being alive because termination 
@@ -67,10 +73,10 @@ class RewardsCfg:
 
     inspection_done = RewTerm(
         func=get_if_inspection_done,
-        weight=5000
+        weight=500
     )
 
     illegal_contact = RewTerm(
         func=get_illegal_contact,
-        weight=-5000
+        weight=-500
     )

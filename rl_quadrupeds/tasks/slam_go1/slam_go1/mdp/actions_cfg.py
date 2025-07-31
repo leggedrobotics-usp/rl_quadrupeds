@@ -18,14 +18,10 @@ class ActionsCfg:
         low_level_decimation=4,
         low_level_actions=locomotion_cfg.actions.joint_pos,
         low_level_observations=locomotion_cfg.observations.policy,
-        clip={"lin_vel_x": vel_ranges.lin_vel_x,
-              "lin_vel_y": vel_ranges.lin_vel_y,
-              "ang_vel_z": vel_ranges.ang_vel_z},
-        scale={
-            "lin_vel_x": vel_ranges.lin_vel_x[1],
-            "lin_vel_y": vel_ranges.lin_vel_y[1],
-            "ang_vel_z": vel_ranges.ang_vel_z[1],
-        },
+        v_linear_min=vel_ranges.lin_vel_x[0],
+        v_linear_max=vel_ranges.lin_vel_x[1],
+        v_angular_min=vel_ranges.ang_vel_z[0],
+        v_angular_max=vel_ranges.ang_vel_z[1],
         debug_vis=False,
         # manual_cmd="base_velocity"
     )

@@ -74,7 +74,7 @@ class CaptureFeaturesAction(ActionTerm):
         self._raw_actions[:] = actions
 
         # Convert ELU outputs to binary: > 0 → 1, else 0
-        self._processed_actions[:] = (actions > 0.0).to(torch.float32)
+        self._processed_actions[:] = (torch.tanh(actions) > 0.0).to(torch.float32)
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         if env_ids is not None:

@@ -150,6 +150,14 @@ class ObjectInspectionCoverage(ManagerTermBase):
         """
         E, N, _ = lidar_hits.shape
         M = self.valid_object_ids.shape[0]
+
+        # --- Take only the front half of the LiDAR readings ---
+        half_N = N // 2
+        lidar_hits = lidar_hits[:, :half_N, :]
+        lidar_labels = lidar_labels[:, :half_N]
+        lidar_weights = lidar_weights[:, :half_N]
+        N = half_N  # update N
+
         T = min(self.max_hits_per_step, N)
 
         # [E, N, M]: matches
@@ -176,7 +184,7 @@ class ObjectInspectionCoverage(ManagerTermBase):
 
         # Fixed-size slice
         lidar_hits_tensor = hits_sorted[:, :, :T, :]  # [E, M, T, 2]
-        y_tensor = weights_sorted[:, :, :T]           # [E, M, T]
+        y_tensor = weights_sorted[:, :, :T]          # [E, M, T]
 
         # Valid points inside that slice
         arange_t = torch.arange(T, device=env.device).view(1, 1, T)

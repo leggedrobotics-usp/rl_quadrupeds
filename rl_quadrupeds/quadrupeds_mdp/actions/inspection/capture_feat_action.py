@@ -67,16 +67,19 @@ class CaptureFeaturesAction(ActionTerm):
         return self._processed_actions
     
     def process_actions(self, actions: torch.Tensor):
-        # store the raw actions
-        self._raw_actions[:] = actions.squeeze(1)
-        
-        # convert it to a binary action (if greater than 0.5, set to 1, else set to 0)
-        self._processed_actions = (
-            (self._raw_actions > 0.0).to(torch.float32)
-        )
+        # Ensure 1D shape [num_envs]
+        actions = actions.view(-1)
+
+        # Store raw actions
+        self._raw_actions[:] = actions
+
+        # Convert ELU outputs to binary: > 0 → 1, else 0
+        self._processed_actions[:] = (actions > 0.0).to(torch.float32)
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
-        self._raw_actions[env_ids] = 0.0
+        if env_ids is not None:
+            self._raw_actions[env_ids] = 0.0
+            self._processed_actions[env_ids] = 0.0
 
     def apply_actions(self):
         # Set the capture feature action to the env

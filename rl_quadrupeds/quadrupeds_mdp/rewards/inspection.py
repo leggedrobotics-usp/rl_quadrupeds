@@ -62,3 +62,27 @@ def get_unknown_inspection_points(env):
 
     per_env_total = normalized_unknowns.sum(dim=-1)  # (num_envs,)
     return per_env_total
+
+def get_known_inspection_points(env):
+    """
+    Returns a 1D tensor of shape (num_envs,) indicating, for each environment,
+    the total normalized number of known inspection points across all objects.
+
+    A point is considered known if its confidence > 0.5
+    Each object's known count is normalized by its number of contour points.
+    """
+    confidence = env.confidence  # shape: (num_envs, num_objects, num_points)
+    
+    # Known points mask (inverse of unknown)
+    known_mask = (confidence > 0.5)  # shape: (num_envs, num_objects, num_points)
+    
+    # Count known points per object
+    known_count = known_mask.sum(dim=-1).float()  # (num_envs, num_objects)
+    
+    # Normalize by number of points per object
+    num_points = confidence.shape[-1]
+    normalized_knowns = known_count / num_points  # (num_envs, num_objects)
+    
+    # Sum normalized counts per environment
+    per_env_total = normalized_knowns.sum(dim=-1)  # (num_envs,)
+    return per_env_total

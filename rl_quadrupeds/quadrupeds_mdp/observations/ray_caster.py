@@ -15,14 +15,20 @@ from isaaclab_extensions.sensors.ray_caster.better.ray_caster import BetterRayCa
 
 def lidar_scan(
     env: ManagerBasedEnv, 
-    sensor_cfg: SceneEntityCfg, 
+    sensor_cfg: SceneEntityCfg,
+    fill_value: float = 20.0,
 ) -> torch.Tensor:
     """Height scan from the given sensor w.r.t. the sensor's frame.
 
     The provided offset (Defaults to 0.5) is subtracted from the returned values.
     """
     sensor: BetterRayCaster = env.scene.sensors[sensor_cfg.name]
-    return sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2]
+    return torch.nan_to_num(
+        sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2],
+        nan=fill_value,
+        posinf=fill_value,
+        neginf=fill_value
+    )
 
 def lidar_scan_hits_labels(
     env: ManagerBasedEnv, 

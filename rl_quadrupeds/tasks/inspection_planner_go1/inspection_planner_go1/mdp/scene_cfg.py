@@ -104,7 +104,7 @@ class Go1InspectionPlannerSceneCfg(InteractiveSceneCfg):
         ],
         attach_yaw_only=True,
         pattern_cfg=patterns.LidarPatternCfg(
-            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-180, 180.1], horizontal_res=5.0
+            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-180, 180.1], horizontal_res=7.0
         ),
         max_distance=20.,
         # ros_publisher_cfg=RayCasterROSPublisherCfg(

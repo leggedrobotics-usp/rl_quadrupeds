@@ -36,18 +36,13 @@ class RewardsCfg:
 
     overall_inspection_coverage = RewTerm(
         func=get_overall_inspection_coverage,
-        weight=5.
+        weight=100.
     )
 
     overall_inspection_coverage_gain = RewTerm(
         func=get_overall_inspection_coverage_gain,
-        weight=50.
+        weight=300.
     )
-
-    # unknown_inspection_points = RewTerm(
-    #     func=get_unknown_inspection_points,
-    #     weight=-50.
-    # )
 
     known_inspection_points = RewTerm(
         func=get_known_inspection_points,
@@ -64,16 +59,9 @@ class RewardsCfg:
         weight=10
     )
 
-    # We penalize the agent for being alive because termination 
-    # means it has successfully inspected the objects.
-    # is_alive = RewTerm(
-    #     func=is_alive,
-    #     weight=-0.5
-    # )
-
     inspection_done = RewTerm(
         func=get_if_inspection_done,
-        weight=200
+        weight=500
     )
 
     illegal_contact = RewTerm(

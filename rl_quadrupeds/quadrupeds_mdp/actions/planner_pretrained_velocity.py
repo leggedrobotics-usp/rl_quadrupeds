@@ -11,7 +11,7 @@ from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.markers.config import GREEN_ARROW_X_MARKER_CFG
 from isaaclab.utils import configclass
 from isaaclab.utils.assets import check_file_path, read_file
-from isaaclab.utils.math import wrap_to_pi, quat_rotate_inverse, yaw_quat, quat_from_euler_xyz
+from isaaclab.utils.math import wrap_to_pi, quat_rotate, quat_rotate_inverse, yaw_quat, quat_from_euler_xyz
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedRLEnv
@@ -41,7 +41,7 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         self.locomotion_policy = torch.jit.load(loco_bytes).to(env.device).eval()
 
         # Buffers
-        self._raw_actions = torch.zeros(self.num_envs, self.action_dim, device=self.device)  # [x, y, z, heading] in robot frame
+        self._raw_actions = torch.zeros(self.num_envs, self.action_dim + 1, device=self.device)  # [x, y, z, heading] in robot frame
         self.last_action = torch.zeros_like(self._raw_actions)
 
         self._nav_action_term: ActionTerm = cfg.nav_actions.class_type(cfg.nav_actions, env)
@@ -84,9 +84,13 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         self.pos_command_b = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_command_b = torch.zeros(self.num_envs, device=self.device)
 
+        self.arena_x_min = self._env.scene.env_origins[:, 0] + self.cfg.ranges.pos_x[0]
+        self.arena_x_max = self._env.scene.env_origins[:, 0] + self.cfg.ranges.pos_x[1]
+        self.arena_y_min = self._env.scene.env_origins[:, 1] + self.cfg.ranges.pos_y[0]
+        self.arena_y_max = self._env.scene.env_origins[:, 1] + self.cfg.ranges.pos_y[1]
         self.half_range_pos_x = (self.cfg.ranges.pos_x[1] - self.cfg.ranges.pos_x[0]) / 2
         self.half_range_pos_y = (self.cfg.ranges.pos_y[1] - self.cfg.ranges.pos_y[0]) / 2
-        self.half_range_heading = (self.cfg.ranges.heading[1] - self.cfg.ranges.heading[0]) / 2
+        self.range_heading = self.cfg.ranges.heading[1] - self.cfg.ranges.heading[0]
 
     """
     Properties.
@@ -94,7 +98,10 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
 
     @property
     def action_dim(self) -> int:
-        return 4  # [x, y, z, heading]
+        # [x, y, heading]
+        # z is mandatory for the navigation policy, but it does not need to be
+        # calculated by the planner agent.
+        return 3 
 
     @property
     def raw_actions(self) -> torch.Tensor:
@@ -133,31 +140,42 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         self._nav_actions[:, 2] = angular_action * (angular_max - angular_min) / 2 + (angular_max + angular_min) / 2
 
     def process_actions(self, actions: torch.Tensor):
-        """Receives a 4-value tensor (ELU outputs) and processes it:
-        1. Scale to world-frame commands.
-        2. Transform to robot frame and store as action.
-        """
         if not self.observation_reset_done:
             self._reset_observations()
             self.observation_reset_done = True
 
-        self.pos_command_w[:] = self._env.scene.env_origins
+        local_viewpoint_action = torch.tanh(actions)
 
-        # --- Step 1: Convert network outputs to world-frame position commands ---
-        xy = actions[:, :2].clamp(min=-1.0)
-        xy = torch.tanh(xy)  # [-1,1]
-        self.pos_command_w[:, 0] += xy[:, 0] * self.half_range_pos_x
-        self.pos_command_w[:, 1] += xy[:, 1] * self.half_range_pos_y
-        self.pos_command_w[:, 2] += self.robot.data.default_root_state[:, 2]
+        # Scale local commands to max ranges
+        self.pos_command_b[:, 0] = local_viewpoint_action[:, 0] * self.half_range_pos_x
+        self.pos_command_b[:, 1] = local_viewpoint_action[:, 1] * self.half_range_pos_y
+        self.pos_command_b[:, 2] = 0.0
+        self.heading_command_b[:] = local_viewpoint_action[:, 2] * self.range_heading
 
-        heading = actions[:, 3].clamp(min=-1.0)
-        heading = torch.tanh(heading)
-        self.heading_command_w[:] = heading * self.half_range_heading
+        # Convert local command to world frame to check arena bounds
+        pos_delta_world = quat_rotate(
+            yaw_quat(self.robot.data.root_quat_w),
+            self.pos_command_b
+        )
+        candidate_pos_w = self.robot.data.root_pos_w[:, :3] + pos_delta_world
 
-        # --- Step 2: Transform world-frame commands into robot-frame commands ---
-        target_vec = self.pos_command_w - self.robot.data.root_pos_w[:, :3]
-        self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(self.robot.data.root_quat_w), target_vec)
-        self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - self.robot.data.heading_w)
+        # Clamp to arena bounds
+        candidate_pos_w[:, 0] = candidate_pos_w[:, 0].clamp(self.arena_x_min, self.arena_x_max)
+        candidate_pos_w[:, 1] = candidate_pos_w[:, 1].clamp(self.arena_y_min, self.arena_y_max)
+        candidate_pos_w[:, 2] = self.robot.data.root_pos_w[:, 2]
+
+        # If clamping changed the position, adjust the local command to remain inside arena
+        corrected_delta_w = candidate_pos_w - self.robot.data.root_pos_w[:, :3]
+        self.pos_command_b[:] = quat_rotate_inverse(
+            yaw_quat(self.robot.data.root_quat_w),
+            corrected_delta_w
+        )
+
+        # Update world-frame command for reference
+        self.pos_command_w[:] = candidate_pos_w
+        self.heading_command_w = wrap_to_pi(
+            self.robot.data.heading_w + self.heading_command_b
+        )
 
         # Update buffers
         self.last_action[:] = self._raw_actions[:]

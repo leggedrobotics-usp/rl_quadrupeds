@@ -106,7 +106,7 @@ class ObjectInspectionCoverage(ManagerTermBase):
     def __call__(self, env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg) -> torch.Tensor:
         lidar_data = lidar_scan_hits_labels(env, sensor_cfg=sensor_cfg)  # [E, N, 4+]
         lidar_hits = lidar_data[:, :, 0:2]  # x, y
-        lidar_labels = lidar_data[:, :, 3].long()  # label
+        lidar_labels = lidar_data[:, :, 2].long()  # label
 
         capture_mask = env.capture_feat_action.bool()  # [E]
         # capture_mask = torch.ones(env.num_envs, dtype=torch.bool, device=env.device)  # for debugging
@@ -125,6 +125,7 @@ class ObjectInspectionCoverage(ManagerTermBase):
 
         coverage_score, confidence = self._compute_coverage_score(env, gp_update_mask)
 
+        # return coverage_score
         # Return shape: [E, M + M*D] flattened across M
         return torch.cat([coverage_score.unsqueeze(-1), confidence], dim=-1).view(env.num_envs, -1)
 
@@ -150,13 +151,6 @@ class ObjectInspectionCoverage(ManagerTermBase):
         """
         E, N, _ = lidar_hits.shape
         M = self.valid_object_ids.shape[0]
-
-        # --- Take only the front half of the LiDAR readings ---
-        half_N = N // 2
-        lidar_hits = lidar_hits[:, :half_N, :]
-        lidar_labels = lidar_labels[:, :half_N]
-        lidar_weights = lidar_weights[:, :half_N]
-        N = half_N  # update N
 
         T = min(self.max_hits_per_step, N)
 

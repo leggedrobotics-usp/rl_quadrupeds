@@ -23,7 +23,7 @@ class RewardsCfg:
 
     stay_away_from_obstacles = RewTerm(
         func=get_sum_distance_from_all_objects,
-        weight=-0.5,
+        weight=-1,
         params={
             "sensor_cfg": SceneEntityCfg("ray_caster")
         }

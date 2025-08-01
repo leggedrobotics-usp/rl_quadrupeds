@@ -40,11 +40,10 @@ def lidar_scan_hits_labels(
     All NaN, +inf, -inf values are replaced with `fill_value`.
     """
     sensor: BetterRayCaster = env.scene.sensors[sensor_cfg.name]
-    ray_hits = sensor.data.ray_hits_w  # [E, N, 3]
-    ray_hits = torch.nan_to_num(ray_hits, nan=fill_value, posinf=fill_value, neginf=fill_value)
-
-    hit_labels = sensor.data.hit_labels.unsqueeze(-1).float()  # [E, N, 1]
-
+    ray_hits = sensor.data.ray_hits_w[:, :, :2]  # [E, N, 2]
+    half_n = ray_hits.shape[1] // 2
+    ray_hits = torch.nan_to_num(ray_hits[:, :half_n, :], nan=fill_value, posinf=fill_value, neginf=fill_value)
+    hit_labels = sensor.data.hit_labels[:, :half_n].unsqueeze(-1).float()  # [E, N, 1]
     return torch.cat([ray_hits, hit_labels], dim=-1)  # [E, N, 4]
 
 def lidar_scan_hits_labels_flattened(
@@ -58,20 +57,12 @@ def lidar_scan_hits_labels_flattened(
     All NaN, +inf, -inf values are replaced with `fill_value`.
     """
     sensor: BetterRayCaster = env.scene.sensors[sensor_cfg.name]
-
-    ray_hits = sensor.data.ray_hits_w  # [E, N, 3]
-    hit_labels = sensor.data.hit_labels  # [E, N]
-
-    # Replace NaN and infinities in place (if allowed)
-    torch.nan_to_num(ray_hits, nan=fill_value, posinf=fill_value, neginf=fill_value, out=ray_hits)
-
-    # Preallocate the final tensor
-    E, N, _ = ray_hits.shape
-    lidar_data = torch.empty((E, N, 4), device=ray_hits.device, dtype=ray_hits.dtype)
-
-    # Copy data without using cat (avoids reallocation)
-    lidar_data[..., :3] = ray_hits
-    lidar_data[..., 3] = hit_labels
-
-    # Flatten (should be cheap if contiguous)
-    return lidar_data.reshape(E, N * 4)
+    ray_hits = sensor.data.ray_hits_w[:, :, :2]  # [E, N, 2]
+    half_n = ray_hits.shape[1] // 2
+    ray_hits = torch.nan_to_num(ray_hits[:, :half_n, :], nan=fill_value, posinf=fill_value, neginf=fill_value) # [E, N/2, 2]
+    hit_labels = sensor.data.hit_labels[:, :half_n].float()  # [E, N/2]
+    E, _, _ = ray_hits.shape
+    lidar_data = torch.empty((E, half_n, 3), device=ray_hits.device, dtype=ray_hits.dtype) # [E, N/2, 3]
+    lidar_data[..., :2] = ray_hits
+    lidar_data[..., 2] = hit_labels
+    return lidar_data.reshape(E, half_n * 3)

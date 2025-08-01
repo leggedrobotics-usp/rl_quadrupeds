@@ -155,4 +155,4 @@ class SceneGroundTruthMap(ManagerTermBase):
         # self.index += 1
         # self.save_map_to_img()
 
-        return self.map_tensor.view(env.num_envs, -1)
+        return env.env_exploration_proportion.unsqueeze(-1)

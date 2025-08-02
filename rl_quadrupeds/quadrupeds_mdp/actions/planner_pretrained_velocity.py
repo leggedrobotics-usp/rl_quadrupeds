@@ -92,6 +92,17 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         self.half_range_pos_y = (self.cfg.ranges.pos_y[1] - self.cfg.ranges.pos_y[0]) / 2
         self.range_heading = self.cfg.ranges.heading[1] - self.cfg.ranges.heading[0]
 
+        # Added: Track last commanded target in world frame
+        self.last_target_pos_w = torch.zeros(self.num_envs, 3, device=self.device)
+        self.last_target_heading_w = torch.zeros(self.num_envs, device=self.device)
+
+        # Added: Position and orientation tolerance
+        self.position_tolerance = 0.1  # meters
+        self.heading_tolerance = 0.1  # radians
+
+        # Added: Env flag for readiness
+        self._env.is_ready_for_new_command = torch.ones(self.num_envs, dtype=torch.bool, device=self.device)
+
     """
     Properties.
     """
@@ -101,7 +112,7 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         # [x, y, heading]
         # z is mandatory for the navigation policy, but it does not need to be
         # calculated by the planner agent.
-        return 3 
+        return 3
 
     @property
     def raw_actions(self) -> torch.Tensor:
@@ -144,6 +155,21 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
             self._reset_observations()
             self.observation_reset_done = True
 
+        # Compute current distance to last target
+        current_pos = self.robot.data.root_pos_w[:, :3]
+        current_heading = self.robot.data.heading_w
+        pos_error = torch.norm(current_pos[:, :2] - self.last_target_pos_w[:, :2], dim=1)
+        heading_error = torch.abs(wrap_to_pi(current_heading - self.last_target_heading_w))
+
+        # Update env readiness
+        self._env.is_ready_for_new_command = (pos_error < self.position_tolerance) & (heading_error < self.heading_tolerance)
+
+        # Only accept new command if robot is ready
+        ready_mask = self._env.is_ready_for_new_command
+        if not torch.any(ready_mask):
+            # Robot still navigating, do not update commands
+            return
+
         local_viewpoint_action = torch.tanh(actions)
 
         # Scale local commands to max ranges
@@ -181,6 +207,10 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         self.last_action[:] = self._raw_actions[:]
         self._raw_actions[:, :3] = self.pos_command_b
         self._raw_actions[:, 3] = self.heading_command_b
+
+        # Store last target in world frame
+        self.last_target_pos_w[:] = self.pos_command_w
+        self.last_target_heading_w[:] = self.heading_command_w
 
     def apply_actions(self):
         """Run navigation and locomotion policies to generate joint actions."""

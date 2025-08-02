@@ -12,7 +12,7 @@ def get_sum_distance_from_all_objects(
 
     return torch.sum(
         torch.nan_to_num(
-            sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2],
+            torch.abs(sensor.data.pos_w[:, 2].unsqueeze(1) - sensor.data.ray_hits_w[..., 2]),
             nan=0.0,
             posinf=0.0,
             neginf=0.0

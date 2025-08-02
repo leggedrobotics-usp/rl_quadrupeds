@@ -14,11 +14,14 @@ from quadrupeds_mdp.observations.inspection.coverage import ObjectInspectionCove
 from quadrupeds_mdp.observations.inspection.objects_distance import ComputeObjectRelativePose
 from quadrupeds_mdp.observations.map.scene_map import SceneGroundTruthMap
 from quadrupeds_mdp.observations.position import local_viewpoint
+from quadrupeds_mdp.observations.state import robot_is_ready_for_new_command
 
 @configclass
 class NavObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
+        robot_is_ready = ObsTerm(func=robot_is_ready_for_new_command)
+
         # Last action taken by the robot
         actions = ObsTerm(func=last_action, noise=Unoise(n_min=-0.01, n_max=0.01))
 

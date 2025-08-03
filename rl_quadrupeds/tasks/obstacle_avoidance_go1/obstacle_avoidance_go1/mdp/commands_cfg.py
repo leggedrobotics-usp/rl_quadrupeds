@@ -42,7 +42,7 @@ class CommandsCfg():
     pose_command = UniformPose2dCommandCfg(
         asset_name="robot",
         simple_heading=False,
-        resampling_time_range=(10.0, 10.0),
-        debug_vis=False,
+        resampling_time_range=(20., 20.),
+        debug_vis=True,
         ranges=UniformPose2dCommandCfg.Ranges(pos_x=(-3.5, 3.5), pos_y=(-3.5, 3.5), heading=(-math.pi, math.pi)),
     )

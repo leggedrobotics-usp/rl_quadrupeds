@@ -11,18 +11,6 @@ from isaaclab.envs.mdp.events import (
 
 @configclass
 class EventCfg:
-    physics_material = EventTerm(
-        func=randomize_rigid_body_material,
-        mode="startup",
-        params={
-            "asset_cfg": SceneEntityCfg("robot", body_names=".*"),
-            "static_friction_range": (0.8, 0.8),
-            "dynamic_friction_range": (0.6, 0.6),
-            "restitution_range": (0.0, 0.0),
-            "num_buckets": 64,
-        },
-    )
-
     reset_base = EventTerm(
         func=reset_root_state_uniform,
         mode="reset",

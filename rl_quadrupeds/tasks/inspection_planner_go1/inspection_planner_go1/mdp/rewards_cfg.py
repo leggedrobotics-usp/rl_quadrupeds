@@ -10,7 +10,8 @@ from quadrupeds_mdp.rewards.inspection import (
     get_overall_inspection_coverage_gain,
     get_if_inspection_done,
     get_known_inspection_points,
-    get_unknown_inspection_points
+    get_unknown_inspection_points,
+    MilestoneCoverageReward
 )
 from quadrupeds_mdp.rewards.contact import get_illegal_contact
 from quadrupeds_mdp.rewards.exploration import (
@@ -26,7 +27,7 @@ from quadrupeds_mdp.rewards.position import (
 class RewardsCfg:
     viewpoint_action_rate_l2 = RewTerm(
         func=viewpoint_action_rate_l2,
-        weight=-0.5
+        weight=-5
     )
 
     # penalize_inspection_action = RewTerm(
@@ -67,4 +68,9 @@ class RewardsCfg:
     illegal_contact = RewTerm(
         func=get_illegal_contact,
         weight=-200
+    )
+
+    inspection_milestones_reward = RewTerm(
+        func=MilestoneCoverageReward,
+        weight=500
     )

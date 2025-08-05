@@ -27,22 +27,51 @@ def get_overall_inspection_coverage(
     """
     return torch.sum(env.coverage, dim=1)
 
-def get_overall_inspection_coverage_gain(
-    env: ManagerBasedRLEnv,
-) -> torch.Tensor:
+class MaxCoverageGainReward(ManagerTermBase):
     """
-    Computes the overall inspection coverage gain for each environment.
-    It calculates the difference in coverage from the previous step.
-    Optimized for speed.
+    Rewards the agent only when the overall inspection coverage increases
+    and exceeds the maximum coverage observed so far for each environment.
     """
-    # Compute difference
-    diff = env.coverage - env.coverage_prev
-    
-    # Clamp negative values to zero (faster than torch.maximum with a new tensor)
-    diff = diff.clamp_min_(0.0)
-    
-    # Sum along dimension 1
-    return diff.sum(dim=1)
+
+    def __init__(
+        self,
+        cfg: RewardTermCfg,
+        env: ManagerBasedRLEnv,
+    ):
+        super().__init__(cfg, env)
+        self.env = env
+
+        # Track the maximum coverage per environment
+        self.max_coverage = torch.zeros(env.num_envs, device=env.device)
+
+        # Track the previous coverage per environment
+        self.prev_coverage = torch.zeros(env.num_envs, device=env.device)
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        """Reset stored coverage values for given environments."""
+        if env_ids is not None:
+            self.max_coverage[env_ids] = 0.0
+            self.prev_coverage[env_ids] = 0.0
+
+    def __call__(self, env: ManagerBasedRLEnv) -> torch.Tensor:
+        """Computes the reward for exceeding the previous max coverage."""
+        # Current overall coverage per environment
+        current_coverage = torch.sum(env.coverage, dim=1)
+
+        # Compute coverage difference (only positive changes matter)
+        diff = (current_coverage - self.prev_coverage).clamp_min(0.0)
+
+        # Reward only if coverage increased AND exceeded previous max
+        reward_mask = current_coverage > self.max_coverage
+        reward = diff * reward_mask.float()
+
+        # Update the maximum coverage per environment
+        self.max_coverage = torch.maximum(self.max_coverage, current_coverage)
+
+        # Update previous coverage for next step
+        self.prev_coverage = current_coverage.clone()
+
+        return reward
 
 def get_if_inspection_done(
     env: ManagerBasedRLEnv,
@@ -159,3 +188,60 @@ def get_known_inspection_points(env):
     # Sum normalized counts per environment
     per_env_total = normalized_knowns.sum(dim=-1)  # (num_envs,)
     return per_env_total
+
+class KnownInspectionPointsGainReward(ManagerTermBase):
+    """
+    Tracks known inspection points per environment and gives rewards only
+    when the number of known points increases.
+    """
+
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
+        super().__init__(cfg, env)
+        self.env = env
+
+        # Load params or use defaults
+        self.threshold = cfg.params.get("threshold", 0.5)
+
+        # Track last known normalized counts per environment
+        self.last_knowns = torch.zeros(
+            env.num_envs, dtype=torch.float32, device=env.device
+        )
+
+    def __call__(self, env: ManagerBasedRLEnv) -> torch.Tensor:
+        """
+        Compute the reward based on updated confidence values.
+
+        Returns:
+            reward: 1D tensor of shape (num_envs,) with rewards.
+        """
+        confidence = env.confidence  # (num_envs, num_objects, num_points)
+
+        # Determine known points
+        known_mask = confidence > self.threshold  # (num_envs, num_objects, num_points)
+
+        # Count known points per object and normalize
+        known_count = known_mask.sum(dim=-1).float()  # (num_envs, num_objects)
+
+        # Sum per environment
+        total_knowns = known_count.sum(dim=-1)  # (num_envs,)
+
+        # Compute reward: only positive increase is rewarded
+        reward = torch.clamp(total_knowns - self.last_knowns, min=0.0)
+
+        # Update state
+        self.last_knowns = total_knowns
+
+        return reward
+
+    def reset(self, env_ids: Sequence[int] | None = None) -> None:
+        """
+        Reset the tracker for the specified environments.
+
+        Args:
+            env_ids: List of environment indices to reset. If None, resets all.
+        """
+        if env_ids is None:
+            self.last_knowns.zero_()
+        else:
+            env_ids_tensor = torch.as_tensor(env_ids, device=self.env.device, dtype=torch.long)
+            self.last_knowns[env_ids_tensor] = 0.0

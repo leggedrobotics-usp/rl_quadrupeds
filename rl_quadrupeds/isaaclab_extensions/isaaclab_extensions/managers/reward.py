@@ -64,76 +64,73 @@ class ExponentialRewardManager(RewardManager):
         self._reward_buf = self._positive_reward_buf * torch.exp(0.2*self._negative_reward_buf)
 
         return self._reward_buf
-    
+
 class NormalizedRewardManager(RewardManager):
     """
-    Custom RewardManager using min-max normalization:
-    - Each reward term is normalized to [0, 1] using its own min/max.
-    - Then the weighted sum across terms is normalized to [-1, 1] per environment.
+    Custom RewardManager using online exponential moving normalization:
+    - Each reward term is normalized with a running mean and std.
+    - Rewards are standardized to mean 0 and variance 1, but sign is preserved.
+    - Final reward is scaled to [-1, 1] per environment using running max abs.
     """
 
-    def __init__(self, cfg: object, env: ManagerBasedRLEnv):
+    def __init__(self, cfg: object, env: ManagerBasedRLEnv, alpha: float = 0.01):
         super().__init__(cfg, env)
 
-        # [num_envs, num_terms, 2]: [min, max]
-        inf = float('inf')
-        self._term_minmax = torch.stack([
-            torch.full((self.num_envs, len(self._term_names)), inf, dtype=torch.float, device=self.device),    # min
-            torch.full((self.num_envs, len(self._term_names)), -inf, dtype=torch.float, device=self.device)    # max
-        ], dim=-1)
-
-        # [num_envs, 2]: [min, max] of total weighted reward
-        self._env_minmax = torch.stack([
-            torch.full((self.num_envs,), inf, dtype=torch.float, device=self.device),   # min
-            torch.full((self.num_envs,), -inf, dtype=torch.float, device=self.device)   # max
-        ], dim=-1)
-
         self._epsilon = 1e-8
+        self._alpha = alpha  # EMA smoothing factor
+
+        num_envs = self.num_envs
+        num_terms = len(self._term_names)
+
+        # Running stats for online normalization per reward term
+        self._running_mean = torch.zeros((num_envs, num_terms), dtype=torch.float, device=self.device)
+        self._running_var = torch.ones((num_envs, num_terms), dtype=torch.float, device=self.device)
+
+        # Running max abs for final total normalization per environment
+        self._running_max_abs_total = torch.ones((num_envs,), dtype=torch.float, device=self.device)
 
     def compute(self, dt: float) -> torch.Tensor:
         self._step_reward[:, :] = 0.0
 
+        # === Compute and normalize each term ===
         for idx, (name, term_cfg) in enumerate(zip(self._term_names, self._term_cfgs)):
             if term_cfg.weight == 0.0:
                 continue
 
+            # Compute raw reward term
             value = term_cfg.func(self._env, **term_cfg.params)
 
-            # === Update min/max ===
-            self._term_minmax[:, idx, 0] = torch.minimum(self._term_minmax[:, idx, 0], value)
-            self._term_minmax[:, idx, 1] = torch.maximum(self._term_minmax[:, idx, 1], value)
+            # --- Update running mean and variance (EMA) ---
+            delta = value - self._running_mean[:, idx]
+            self._running_mean[:, idx] += self._alpha * delta
+            self._running_var[:, idx] = (1 - self._alpha) * self._running_var[:, idx] + self._alpha * delta.pow(2)
 
-            min_val = self._term_minmax[:, idx, 0]
-            max_val = self._term_minmax[:, idx, 1]
-            range_val = max_val - min_val
+            # --- Online standardization ---
+            std = torch.sqrt(self._running_var[:, idx] + self._epsilon)
+            norm_value = value / std  # keeps sign
 
-            # Normalize to [0, 1]
-            norm_value = (value - min_val) / (range_val + self._epsilon)
-
-            # Apply weight while preserving weight scale
-            weighted_reward = norm_value * term_cfg.weight * dt
+            # Apply weight and dt
+            weighted_reward = norm_value * term_cfg.weight
             self._step_reward[:, idx] = weighted_reward
+            # print(f"Term '{name}': \nraw={value}, \nnormed={norm_value}, \nweighted={weighted_reward}")
 
         # === Combine terms per environment ===
         total_reward = self._step_reward.sum(dim=1)
 
-        # === Update per-env min/max of combined reward ===
-        self._env_minmax[:, 0] = torch.minimum(self._env_minmax[:, 0], total_reward)
-        self._env_minmax[:, 1] = torch.maximum(self._env_minmax[:, 1], total_reward)
-
-        # === Sign-preserving normalization ===
-        max_abs_total = torch.max(
-            total_reward.abs(),
-            torch.max(self._env_minmax.abs(), dim=1).values
+        # === Update running max abs for sign-preserving normalization ===
+        self._running_max_abs_total = torch.maximum(
+            self._running_max_abs_total * (1 - self._alpha) + total_reward.abs() * self._alpha,
+            torch.full_like(self._running_max_abs_total, self._epsilon)
         )
-        max_abs_total = torch.clamp(max_abs_total, min=self._epsilon)
 
-        final_normalized_reward = total_reward / max_abs_total
+        final_normalized_reward = total_reward / self._running_max_abs_total
 
         # === Log per-term normalized contribution ===
         for idx, name in enumerate(self._term_names):
             term_contrib = self._step_reward[:, idx]
-            normalized_contrib = term_contrib / max_abs_total
+            normalized_contrib = term_contrib / self._running_max_abs_total
             self._episode_sums[name] += normalized_contrib
+        #     print(f"Term '{name}': normalized contribution={normalized_contrib}")
+        # print("Running max abs total:", self._running_max_abs_total)
 
         return final_normalized_reward

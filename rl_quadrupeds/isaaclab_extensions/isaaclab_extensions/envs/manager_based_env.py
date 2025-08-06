@@ -22,6 +22,7 @@ from isaaclab.envs.manager_based_env_cfg import ManagerBasedEnvCfg
 from isaaclab.envs.ui import ViewportCameraController
 
 from isaaclab_extensions.scene import InteractiveScene
+from isaaclab_extensions.managers.debug_observation import ObservationManagerDebug
 
 class ManagerBasedEnv:
     """The base environment encapsulates the simulation scene and the environment managers for the manager-based workflow.
@@ -241,6 +242,7 @@ class ManagerBasedEnv:
         print("[INFO] Action Manager: ", self.action_manager)
         # -- observation manager
         self.observation_manager = ObservationManager(self.cfg.observations, self)
+        # self.observation_manager = ObservationManagerDebug(self.cfg.observations, self)
         print("[INFO] Observation Manager:", self.observation_manager)
 
         # perform events at the start of the simulation

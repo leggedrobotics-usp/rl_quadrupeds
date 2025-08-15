@@ -260,12 +260,37 @@ def position_command_error_tanh(env: ManagerBasedRLEnv, std: float, command_name
     distance = torch.norm(des_pos_b, dim=1)
     return 1 - torch.tanh(distance / std)
 
-
 def heading_command_error_abs(env: ManagerBasedRLEnv, command_name: str) -> torch.Tensor:
     """Penalize tracking orientation error."""
     command = env.command_manager.get_command(command_name)
     heading_b = command[:, 3]
     return heading_b.abs()
+
+def heading_command_error_cosine(env, command_name: str) -> torch.Tensor:
+    """
+    Reward correct heading tracking.
+    Heading error is in radians; reward is highest at 0 error and decreases with absolute error.
+    """
+    command = env.command_manager.get_command(command_name)
+    heading_error = command[:, 3].abs()
+    # Use cosine so 0 rad error = 1.0 reward, pi/2 = 0 reward, pi = -1 reward
+    return torch.cos(heading_error)
+
+def position_command_error_threshold(
+    env: ManagerBasedRLEnv,
+    std: float,
+    position_threshold: float,
+    heading_threshold: float,
+    command_name: str
+) -> torch.Tensor:
+    """
+    Return 1.0 if both position and heading errors are below given thresholds, else 0.0.
+    """
+    position_reward = position_command_error_tanh(env, std=std, command_name=command_name)
+    heading_error = heading_command_error_abs(env, command_name=command_name)
+
+    reached = (position_reward >= position_threshold) & (heading_error <= heading_threshold)
+    return reached.float()
 
 def viewpoint_action_rate_l2(
     env: ManagerBasedRLEnv,

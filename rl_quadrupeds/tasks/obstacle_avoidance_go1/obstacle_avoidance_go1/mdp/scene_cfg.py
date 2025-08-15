@@ -94,5 +94,5 @@ class Go1ObstacleAvoidanceSceneCfg(InteractiveSceneCfg):
     left_wall  = create_wall("left_wall",  (8.0, 0.05, 1.0), (-4.0, 0.0, 0.5))
     front_wall = create_wall("front_wall", (0.05, 8.0, 1.0), (0.0, -4.0, 0.5))
     back_wall  = create_wall("back_wall",  (0.05, 8.0, 1.0), (0.0, 4.0, 0.5))
-    block1 = create_block("block_1", (0.0, 0.0, 0.5))
-    block2 = create_block("block_2", (0.0, 0.0, 0.5))
+    block1 = create_block("block_1", (2.0, 1.5, 0.25))
+    block2 = create_block("block_2", (-1.0, -2.0, 0.25))

@@ -42,7 +42,7 @@ class CommandsCfg():
     pose_command = ObstaclesPose2dCommandCfg(
         asset_name="robot",
         simple_heading=False,
-        resampling_time_range=(20., 20.),
+        resampling_time_range=(1000, 1000),
         debug_vis=True,
         ranges=ObstaclesPose2dCommandCfg.Ranges(pos_x=(-3.5, 3.5), pos_y=(-3.5, 3.5), heading=(-math.pi, math.pi)),
         obstacles=["block1", "block2"],

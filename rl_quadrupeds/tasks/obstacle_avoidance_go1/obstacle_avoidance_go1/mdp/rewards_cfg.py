@@ -24,13 +24,13 @@ class RewardsCfg:
 
     stay_away_from_obstacles = RewTerm(
         func=MinDistanceToObjectsAndWalls,
-        weight=-50.0,
+        weight=-1.5,
         params={
             "objects": ["block1", "block2"],
             "walls": ["right_wall", "left_wall", "front_wall", "back_wall"],
-            "safe_distance": 1.0,
-            "near_distance": 0.5,
-            "sharpness": 10.0,
+            "safe_distance": 2.5,
+            "near_distance": 1.5,
+            "sharpness": 2,
         },
     )
 
@@ -48,8 +48,8 @@ class RewardsCfg:
 
     orientation_tracking = RewTerm(
         func=heading_command_error_abs,
-        weight=-10.0,
+        weight=-4.5,
         params={"command_name": "pose_command"},
     )
 
-    termination_penalty = RewTerm(func=is_terminated, weight=-100.0)
+    termination_penalty = RewTerm(func=is_terminated, weight=-50.0)

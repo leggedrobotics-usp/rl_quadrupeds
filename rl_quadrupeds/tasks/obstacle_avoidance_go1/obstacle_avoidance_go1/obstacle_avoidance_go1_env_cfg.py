@@ -25,7 +25,7 @@ class Go1ObstacleAvoidanceEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self) -> None:
         # general settings
         self.decimation = 4
-        self.episode_length_s = 120.
+        self.episode_length_s = 30.
         # viewer settings
         self.viewer.eye = (8.0, 0.0, 5.0)
         # simulation settings

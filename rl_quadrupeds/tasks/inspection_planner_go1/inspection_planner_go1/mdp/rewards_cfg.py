@@ -42,12 +42,12 @@ class RewardsCfg:
 
     overall_inspection_coverage_gain = RewTerm(
         func=MaxCoverageGainReward,
-        weight=300.
+        weight=3.
     )
 
     known_inspection_points = RewTerm(
         func=KnownInspectionPointsGainReward,
-        weight=200.
+        weight=2.
     )
 
     # env_exploration = RewTerm(
@@ -57,22 +57,22 @@ class RewardsCfg:
 
     current_robot_viewpoint_not_visited = RewTerm(
         func=check_if_current_robot_viewpoint_not_visited,
-        weight=10
+        weight=0.1
     )
 
     inspection_done = RewTerm(
         func=is_terminated_term,
-        weight=500,
+        weight=5,
         params={"term_keys": "inspection_done"}
     )
 
     illegal_contact = RewTerm(
         func=is_terminated_term,
-        weight=-200,
+        weight=-2,
         params={"term_keys": "base_contact"}
     )
 
     inspection_milestones_reward = RewTerm(
         func=MilestoneCoverageReward,
-        weight=500
+        weight=5
     )

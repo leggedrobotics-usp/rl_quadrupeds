@@ -42,7 +42,7 @@ class RewardsCfg:
 
     position_tracking_fine_grained = RewTerm(
         func=position_command_error_tanh,
-        weight=5.0,
+        weight=7.0,
         params={"std": 0.4, "command_name": "pose_command"},
     )
 
@@ -52,4 +52,4 @@ class RewardsCfg:
         params={"command_name": "pose_command"},
     )
 
-    termination_penalty = RewTerm(func=is_terminated, weight=-50.0)
+    termination_penalty = RewTerm(func=is_terminated, weight=-20.0)

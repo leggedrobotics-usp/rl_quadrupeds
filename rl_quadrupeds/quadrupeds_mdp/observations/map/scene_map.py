@@ -11,14 +11,15 @@ class SceneGroundTruthMap(ManagerTermBase):
     """
     Ground truth map tracking visited positions and viewpoints.
     Optimized to avoid slowdowns after many iterations.
+    Ensures no NaN values are produced.
     """
 
     def __init__(self, cfg: ObservationTermCfg, env: ManagerBasedEnv):
         super().__init__(cfg, env)
         self.env = env
 
-        self.map_size = cfg.params.get("map_size", 8)
-        self.resolution = cfg.params.get("resolution", 0.3)
+        self.map_size = cfg.params.get("map_size", 3.3)
+        self.resolution = cfg.params.get("resolution", 0.25)
         self.objects = cfg.params.get("objects", None)
         if self.objects is None:
             raise ValueError("Objects must be specified in the configuration.")
@@ -79,18 +80,16 @@ class SceneGroundTruthMap(ManagerTermBase):
             self.env.current_viewpoint_not_visited[env_ids] = True
             self.visited_counts[env_ids] = 0.0
             self.env.visited_flat[env_ids] = False
-        else:
-            self.env.env_exploration_proportion.zero_()
-            self.env.current_viewpoint_not_visited.zero_()
-            self.visited_counts.zero_()
-            self.env.visited_flat.zero_()
 
     @torch.no_grad()
     def __call__(self, env: ManagerBasedRLEnv, objects: List[str]) -> torch.Tensor:
         # Robot positions and rotations (local env coordinates)
         robot_pos = env.scene["robot"].data.root_pos_w[:, :2] - env.scene.env_origins[:, :2]
         robot_rot = env.scene["robot"].data.root_link_state_w[:, 3:7]
+
+        # Handle potential NaN in quaternion conversion
         yaw = quat_to_yaw(robot_rot)
+        yaw[~torch.isfinite(yaw)] = 0.0  # replace NaN/Inf yaw with 0
 
         # Convert to non-negative map coordinates
         map_coords = ((robot_pos + self.grid_offset) / self.resolution).to(torch.int32)
@@ -119,10 +118,18 @@ class SceneGroundTruthMap(ManagerTermBase):
         visited_flat[new_envs, new_indices] = True
 
         # Update visited counts correctly per environment
-        self.visited_counts.index_add_(0, new_envs, torch.ones_like(new_envs, dtype=torch.float32))
+        if new_envs.numel() > 0:
+            self.visited_counts.index_add_(0, new_envs, torch.ones_like(new_envs, dtype=torch.float32))
 
-        # Compute exploration proportion for all envs
-        env.env_exploration_proportion[:] = self.visited_counts / ((self.free_cells * self.num_yaw_bins) + 1e-6)
+        # Compute exploration proportion safely
+        denom = (self.free_cells * self.num_yaw_bins).float().clamp(min=1e-6)
+        env.env_exploration_proportion[:] = self.visited_counts / denom
+
+        # Final cleanup: Replace any NaN/Inf values (shouldn't occur due to clamp)
+        bad_mask = ~torch.isfinite(env.env_exploration_proportion)
+        if bad_mask.any():
+            env.env_exploration_proportion[bad_mask] = 0.0
 
         self.index += 1
-        return env.env_exploration_proportion.unsqueeze(-1)
+        return env.current_viewpoint_not_visited.float().unsqueeze(-1)
+        # return env.visited_flat.float()

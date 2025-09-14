@@ -329,9 +329,8 @@ class ObservationManagerDebug(ManagerBase):
                 group_obs[term_name] = obs
         # Print each term's content for debugging
         for name, obs in group_obs.items():
-            print(f"Observation Term '{name}'")
+            print(f"Observation Term '{name}' ({obs.shape}):")
             print(obs)
-            print()
 
         # concatenate all observations in the group together
         if self._group_obs_concatenate[group_name]:

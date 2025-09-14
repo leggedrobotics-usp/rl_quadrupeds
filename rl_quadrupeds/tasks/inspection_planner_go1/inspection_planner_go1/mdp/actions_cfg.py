@@ -8,9 +8,9 @@ from locomotion_go1.locomotion_go1_env_cfg import Go1LocomotionEnvCfg
 locomotion_cfg = Go1LocomotionEnvCfg()
 vel_ranges = locomotion_cfg.commands.base_velocity.ranges
 
-from obstacle_avoidance_go1.obstacle_avoidance_go1_env_cfg import Go1ObstacleAvoidanceEnvCfg
-navigation_cfg = Go1ObstacleAvoidanceEnvCfg()
-pos_ranges = navigation_cfg.commands.pose_command.ranges
+# from obstacle_avoidance_go1.obstacle_avoidance_go1_env_cfg import Go1ObstacleAvoidanceEnvCfg
+# navigation_cfg = Go1ObstacleAvoidanceEnvCfg()
+# pos_ranges = navigation_cfg.commands.pose_command.ranges
 
 @configclass
 class ActionsCfg:
@@ -27,13 +27,14 @@ class ActionsCfg:
         # nav_actions=navigation_cfg.actions.hl_vel,
         # nav_observations=navigation_cfg.observations.policy,
         ranges=RobotPlannerActionTrainedNavigationCfg.Ranges(
-            pos_x=(pos_ranges.pos_x[0], pos_ranges.pos_x[1]),
-            pos_y=(pos_ranges.pos_y[0], pos_ranges.pos_y[1]),
-            heading=(pos_ranges.heading[0], pos_ranges.heading[1]),
+            pos_x=(-1.5, 1.5),
+            pos_y=(-1.5, 1.5),
+            heading=(-3.14, 3.14),
             v_linear=(vel_ranges.lin_vel_x[0], vel_ranges.lin_vel_x[1]),
             v_angular=(vel_ranges.ang_vel_z[0], vel_ranges.ang_vel_z[1]),
         ),
         debug_vis=True,
+        # manual_cmd="base_velocity"
     )
 
     capture_feat_action = CaptureFeaturesActionCfg(

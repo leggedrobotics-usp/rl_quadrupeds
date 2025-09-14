@@ -5,13 +5,18 @@ from isaaclab.envs.mdp.rewards import (
 )
 from isaaclab.utils import configclass
 
+from quadrupeds_mdp.rewards.action import (
+    penalize_raw_action_saturation
+)
 from quadrupeds_mdp.rewards.inspection import (
     get_inspection_action,
     get_overall_inspection_coverage,
     MaxCoverageGainReward,
     get_if_inspection_done,
     KnownInspectionPointsGainReward,
-    MilestoneCoverageReward
+    MilestoneCoverageReward,
+    get_robot_stuck_if_inspection_not_done,
+    get_robot_closeness_to_ideal_inspection_pose
 )
 from quadrupeds_mdp.rewards.contact import get_illegal_contact
 from quadrupeds_mdp.rewards.exploration import (
@@ -19,20 +24,42 @@ from quadrupeds_mdp.rewards.exploration import (
     get_env_exploration_percentage
 )
 from quadrupeds_mdp.rewards.position import (
-    viewpoint_action_rate_l2
+    viewpoint_action_rate_l2,
+    viewpoint_towards_objects
 )
-
 
 @configclass
 class RewardsCfg:
-    # viewpoint_action_rate_l2 = RewTerm(
-    #     func=viewpoint_action_rate_l2,
-    #     weight=-5
+    # penalize_raw_action_saturation = RewTerm(
+    #     func=penalize_raw_action_saturation,
+    #     weight=-1.5,
+    #     params={
+    #         "action_term": "viewpoint_action",
+    #     }
     # )
 
-    # penalize_inspection_action = RewTerm(
-    #     func=get_inspection_action,
-    #     weight=-100
+    viewpoint_action_rate_l2 = RewTerm(
+        func=viewpoint_action_rate_l2,
+        weight=-0.01
+    )
+
+    # viewpoint_towards_objects = RewTerm(
+    #     func=viewpoint_towards_objects,
+    #     weight=5,
+    #     params={
+    #         "objects_of_interest": ["block1"],
+    #         "distance_weight": 0,
+    #     }
+    # )
+
+    penalize_inspection_action = RewTerm(
+        func=get_inspection_action,
+        weight=-0.1
+    )
+
+    # penalize_robot_stuck_if_inspection_not_done = RewTerm(
+    #     func=get_robot_stuck_if_inspection_not_done,
+    #     weight=-10,
     # )
 
     # overall_inspection_coverage = RewTerm(
@@ -42,37 +69,53 @@ class RewardsCfg:
 
     overall_inspection_coverage_gain = RewTerm(
         func=MaxCoverageGainReward,
-        weight=3.
+        weight=1000
     )
 
     known_inspection_points = RewTerm(
         func=KnownInspectionPointsGainReward,
-        weight=2.
+        weight=50
     )
 
     # env_exploration = RewTerm(
     #     func=get_env_exploration_percentage,
-    #     weight=10
+    #     weight=2
     # )
 
     current_robot_viewpoint_not_visited = RewTerm(
         func=check_if_current_robot_viewpoint_not_visited,
-        weight=0.1
+        weight=50
     )
 
+    # inspection_done = RewTerm(
+    #     func=is_terminated_term,
+    #     weight=100,
+    #     params={"term_keys": "inspection_done"}
+    # )
+
     inspection_done = RewTerm(
-        func=is_terminated_term,
-        weight=5,
-        params={"term_keys": "inspection_done"}
+        func=get_if_inspection_done,
+        weight=1000,
     )
 
     illegal_contact = RewTerm(
         func=is_terminated_term,
-        weight=-2,
+        weight=-1000,
         params={"term_keys": "base_contact"}
     )
 
-    inspection_milestones_reward = RewTerm(
-        func=MilestoneCoverageReward,
-        weight=5
-    )
+    # inspection_milestones_reward = RewTerm(
+    #     func=MilestoneCoverageReward,
+    #     weight=100
+    # )
+
+    # comment back for full RL training
+    # get_robot_closeness_to_ideal_inspection_pose = RewTerm(
+    #     func=get_robot_closeness_to_ideal_inspection_pose,
+    #     weight=5,
+    # )
+
+    # is_alive = RewTerm(
+    #     func=is_alive,
+    #     weight=-0.01
+    # )

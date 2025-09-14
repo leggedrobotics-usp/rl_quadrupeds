@@ -38,19 +38,19 @@ class NavObservationsCfg:
             },
         )
 
-        # base_lin_vel = ObsTerm(func=base_lin_vel)
-        # base_ang_vel = ObsTerm(func=base_ang_vel)
+        base_lin_vel = ObsTerm(func=base_lin_vel)
+        base_ang_vel = ObsTerm(func=base_ang_vel)
 
-        # # Last action taken by the robot
-        # viewpoint_action = ObsTerm(
-        #     func=last_action, 
-        #     params={"action_name": "viewpoint_action"}
-        # )
+        # Last action taken by the robot
+        viewpoint_action = ObsTerm(
+            func=last_action, 
+            params={"action_name": "viewpoint_action"}
+        )
 
-        # capture_feat_action = ObsTerm(
-        #     func=last_action, 
-        #     params={"action_name": "capture_feat_action"}
-        # )
+        capture_feat_action = ObsTerm(
+            func=last_action, 
+            params={"action_name": "capture_feat_action"}
+        )
 
         # LiDAR hits with object labels
         # Continuous, used for navigation in the environment
@@ -76,18 +76,18 @@ class NavObservationsCfg:
             },
         )
 
-        # viewpoint_already_visited = ObsTerm(
-        #     func=SceneGroundTruthMap,
-        #     params={
-        #         # "objects": [
-        #         #     "right_wall", "left_wall", "back_wall", "front_wall",
-        #         #     "block1"
-        #         # ],
-        #         "objects": [
-        #             "block1"
-        #         ],
-        #     }
-        # )
+        viewpoint_already_visited = ObsTerm(
+            func=SceneGroundTruthMap,
+            params={
+                # "objects": [
+                #     "right_wall", "left_wall", "back_wall", "front_wall",
+                #     "block1"
+                # ],
+                "objects": [
+                    "block1"
+                ],
+            }
+        )
 
         def __post_init__(self):
             self.enable_corruption = True

@@ -46,14 +46,6 @@ def create_block(name, position):
         ),
     )
 
-# def create_contact_sensor_for_object(object_name):
-#     return ContactSensorCfg(
-#         prim_path=f"{{ENV_REGEX_NS}}/{object_name}",
-#         history_length=3,
-#         track_air_time=False,
-#         debug_vis=True,
-#     )
-
 @configclass
 class Go1InspectionPlannerSceneCfg(InteractiveSceneCfg):
     ros_publish = True
@@ -95,18 +87,18 @@ class Go1InspectionPlannerSceneCfg(InteractiveSceneCfg):
         update_period=1 / 60,
         offset=RayCasterCfg.OffsetCfg(pos=(0, 0, 0.1)),
         mesh_prim_paths=[
-            "/World/envs/env_.*/right_wall",
-            "/World/envs/env_.*/left_wall",
-            "/World/envs/env_.*/front_wall",
-            "/World/envs/env_.*/back_wall",
+            # "/World/envs/env_.*/right_wall",
+            # "/World/envs/env_.*/left_wall",
+            # "/World/envs/env_.*/front_wall",
+            # "/World/envs/env_.*/back_wall",
             "/World/envs/env_.*/block_1",
-            "/World/envs/env_.*/block_2"
+            # "/World/envs/env_.*/block_2"
         ],
         attach_yaw_only=True,
         pattern_cfg=patterns.LidarPatternCfg(
-            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-180, 180.1], horizontal_res=7.0
+            channels=1, vertical_fov_range=[0, 0], horizontal_fov_range=[-180, 180.1], horizontal_res=5.0
         ),
-        max_distance=20.,
+        max_distance=5.,
         # ros_publisher_cfg=RayCasterROSPublisherCfg(
         #     topic_name="/lidar",
         #     node_name="isaaclab_raycaster_publisher",
@@ -116,9 +108,9 @@ class Go1InspectionPlannerSceneCfg(InteractiveSceneCfg):
     )
 
     # size and position are (x, y, z)
-    right_wall = create_wall("right_wall", (8.0, 0.05, 1.0), (4.0, 0.0, 0.5))
-    left_wall  = create_wall("left_wall",  (8.0, 0.05, 1.0), (-4.0, 0.0, 0.5))
-    front_wall = create_wall("front_wall", (0.05, 8.0, 1.0), (0.0, -4.0, 0.5))
-    back_wall  = create_wall("back_wall",  (0.05, 8.0, 1.0), (0.0, 4.0, 0.5))
-    block1 = create_block("block_1", (2.0, 1.5, 0.25))
-    block2 = create_block("block_2", (-1.0, -2.0, 0.25))
+    # right_wall = create_wall("right_wall", (3.0, 0.05, 1.0), (1.5, 0.0, 0.5))
+    # left_wall  = create_wall("left_wall",  (3.0, 0.05, 1.0), (-1.5, 0.0, 0.5))
+    # front_wall = create_wall("front_wall", (0.05, 3.0, 1.0), (0.0, -1.5, 0.5))
+    # back_wall  = create_wall("back_wall",  (0.05, 3.0, 1.0), (0.0, 1.5, 0.5))
+    block1 = create_block("block_1", (0.0, 0.0, 0.25))
+    # block2 = create_block("block_2", (-1.0, -2.0, 0.25))

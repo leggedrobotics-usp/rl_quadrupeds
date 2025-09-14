@@ -7,6 +7,7 @@ from isaaclab.managers import (
 )        
 from isaaclab.utils import configclass
 
+from quadrupeds_mdp.terminations.action import terminate_if_raw_action_outside_limits
 from quadrupeds_mdp.terminations.inspection import check_if_inspection_done
 from quadrupeds_mdp.terminations.contact import illegal_contact
 
@@ -21,5 +22,13 @@ class TerminationsCfg:
     
     inspection_done = DoneTerm(
         func=check_if_inspection_done,
-        params={"threshold_per_env": 0.9}
     )
+
+    # terminate_if_raw_action_outside_limits = DoneTerm(
+    #     func=terminate_if_raw_action_outside_limits,
+    #     params={
+    #         "action_term": "viewpoint_action",
+    #         "min_limit": -5.0,
+    #         "max_limit": 5.0
+    #     }
+    # )

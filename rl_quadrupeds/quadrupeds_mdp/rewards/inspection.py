@@ -3,21 +3,24 @@ from typing import Sequence
 import torch
 from isaaclab.envs import ManagerBasedRLEnv
 
+from isaaclab.managers import SceneEntityCfg
 from isaaclab.managers.manager_base import ManagerTermBase
 from isaaclab.managers.manager_term_cfg import RewardTermCfg
 
-def get_inspection_action(
-    env: ManagerBasedRLEnv
-) -> torch.Tensor:
+from quadrupeds_mdp.utils import (
+    quat_to_yaw
+)
+
+def get_inspection_action(env: ManagerBasedRLEnv) -> torch.Tensor:
     """
     Computes when the agent decides to inspect the environment.
     Returns 1 if the inspection action is taken, otherwise returns 0
     for each environment.
-    
-    It is used to penalize the inspection action.
     """
-    return env.action_manager._terms["capture_feat_action"].processed_actions
-
+    actions = env.action_manager._terms["capture_feat_action"].processed_actions.squeeze(-1)
+    # Sanitize to avoid propagating NaN or Inf
+    return torch.nan_to_num(actions, nan=0.0, posinf=0.0, neginf=0.0)
+    
 def get_overall_inspection_coverage(
     env: ManagerBasedRLEnv,
 ) -> torch.Tensor:
@@ -33,42 +36,31 @@ class MaxCoverageGainReward(ManagerTermBase):
     and exceeds the maximum coverage observed so far for each environment.
     """
 
-    def __init__(
-        self,
-        cfg: RewardTermCfg,
-        env: ManagerBasedRLEnv,
-    ):
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
         self.env = env
-
-        # Track the maximum coverage per environment
         self.max_coverage = torch.zeros(env.num_envs, device=env.device)
-
-        # Track the previous coverage per environment
+        self.max_coverage = torch.nan_to_num(self.max_coverage, nan=0.0)
         self.prev_coverage = torch.zeros(env.num_envs, device=env.device)
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
-        """Reset stored coverage values for given environments."""
         if env_ids is not None:
             self.max_coverage[env_ids] = 0.0
             self.prev_coverage[env_ids] = 0.0
 
     def __call__(self, env: ManagerBasedRLEnv) -> torch.Tensor:
-        """Computes the reward for exceeding the previous max coverage."""
-        # Current overall coverage per environment
-        current_coverage = torch.sum(env.coverage, dim=1)
+        current_coverage = torch.nan_to_num(torch.sum(env.coverage, dim=1), nan=0.0)
 
-        # Compute coverage difference (only positive changes matter)
         diff = (current_coverage - self.prev_coverage).clamp_min(0.0)
+        diff = torch.nan_to_num(diff, nan=0.0)
 
-        # Reward only if coverage increased AND exceeded previous max
         reward_mask = current_coverage > self.max_coverage
         reward = diff * reward_mask.float()
+        reward = torch.nan_to_num(reward, nan=0.0)
 
-        # Update the maximum coverage per environment
         self.max_coverage = torch.maximum(self.max_coverage, current_coverage)
+        self.max_coverage = torch.nan_to_num(self.max_coverage, nan=0.0)
 
-        # Update previous coverage for next step
         self.prev_coverage = current_coverage.clone()
 
         return reward
@@ -87,6 +79,39 @@ def get_if_inspection_done(
     return env._inspection_done.float() if hasattr(env, "_inspection_done") \
         else torch.zeros(env.num_envs, dtype=torch.float, device=env.device)
 
+def get_robot_stuck_if_inspection_not_done(
+    env: ManagerBasedRLEnv,
+    velocity_threshold: float = 0.05,
+    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+) -> torch.Tensor:
+    """
+    Penalizes the robot for being stuck (not moving) when inspection is not yet done.
+    Returns a positive value (penalty weight will be applied externally).
+
+    Args:
+        env: The RL environment.
+        velocity_threshold: Minimum velocity magnitude to be considered as moving.
+        asset_cfg: Configuration for the robot entity.
+
+    Returns:
+        torch.Tensor: Positive values indicating penalty when stuck and inspection not done.
+    """
+    # Get inspection completion status (1 if done, 0 otherwise)
+    inspection_done = get_if_inspection_done(env)
+
+    # Get robot linear velocity magnitude in xy-plane
+    asset: RigidObject = env.scene[asset_cfg.name]
+    lin_vel_xy = asset.data.root_lin_vel_b[:, :2]
+    speed_xy = torch.norm(lin_vel_xy, dim=1)
+
+    # Robot is considered stuck if speed is below threshold
+    is_stuck = (speed_xy < velocity_threshold).float()
+
+    # Penalize only when inspection is not done
+    penalty = is_stuck * (1.0 - inspection_done)
+
+    return penalty
+
 class MilestoneCoverageReward(ManagerTermBase):
     """
     Rewards the agent once per milestone when the overall inspection
@@ -94,15 +119,10 @@ class MilestoneCoverageReward(ManagerTermBase):
 
     Example milestones: 30%, 50%, 60%, 70%, 80%, 90%
     """
-    def __init__(
-        self,
-        cfg: RewardTermCfg,
-        env: ManagerBasedRLEnv,
-    ):
+    def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
         self.env = env
 
-        # Load params or use defaults
         self.milestones = cfg.params.get(
             "milestones", [0.3, 0.5, 0.6, 0.7, 0.8, 0.9]
         )
@@ -110,12 +130,7 @@ class MilestoneCoverageReward(ManagerTermBase):
             "reward_per_milestone", 1.0
         )
 
-        # Store previous coverage per environment
-        self.prev_coverage = torch.zeros(
-            env.num_envs, device=env.device
-        )
-
-        # Convert milestones to tensor for vectorized comparison
+        self.prev_coverage = torch.zeros(env.num_envs, device=env.device)
         self.milestone_tensor = torch.tensor(
             self.milestones, device=env.device
         ).view(1, -1)
@@ -129,20 +144,23 @@ class MilestoneCoverageReward(ManagerTermBase):
 
     def __call__(self, env: ManagerBasedRLEnv) -> torch.Tensor:
         """Computes the milestone-based reward for the current step."""
-        # Current overall coverage per environment
-        current_coverage = torch.sum(env.coverage, dim=1)
+        # Sanitize coverage to avoid NaNs
+        current_coverage = torch.sum(
+            torch.nan_to_num(env.coverage, nan=0.0), dim=1
+        )
+        prev_cov = torch.nan_to_num(self.prev_coverage, nan=0.0)
 
         # Compare current vs previous to detect milestone crossings
-        prev_flags = self.prev_coverage.unsqueeze(1) >= self.milestone_tensor
+        prev_flags = prev_cov.unsqueeze(1) >= self.milestone_tensor
         current_flags = current_coverage.unsqueeze(1) >= self.milestone_tensor
 
-        # Milestone is crossed if current >= milestone and prev < milestone
-        new_crossings = (current_flags & ~prev_flags)
-
-        # Reward per new milestone crossed
+        new_crossings = current_flags & ~prev_flags
         reward = new_crossings.sum(dim=1).float() * self.reward_per_milestone
 
-        # Update previous coverage for next step
+        # Ensure reward is finite
+        reward = torch.nan_to_num(reward, nan=0.0)
+
+        # Update previous coverage
         self.prev_coverage = current_coverage.clone()
 
         return reward
@@ -198,37 +216,21 @@ class KnownInspectionPointsGainReward(ManagerTermBase):
     def __init__(self, cfg: RewardTermCfg, env: ManagerBasedRLEnv):
         super().__init__(cfg, env)
         self.env = env
-
-        # Load params or use defaults
         self.threshold = cfg.params.get("threshold", 0.5)
-
-        # Track last known normalized counts per environment
-        self.last_knowns = torch.zeros(
-            env.num_envs, dtype=torch.float32, device=env.device
-        )
+        self.last_knowns = torch.zeros(env.num_envs, dtype=torch.float32, device=env.device)
 
     def __call__(self, env: ManagerBasedRLEnv) -> torch.Tensor:
-        """
-        Compute the reward based on updated confidence values.
+        confidence = torch.nan_to_num(env.confidence, nan=0.0)
 
-        Returns:
-            reward: 1D tensor of shape (num_envs,) with rewards.
-        """
-        confidence = env.confidence  # (num_envs, num_objects, num_points)
+        known_mask = confidence > self.threshold
+        known_count = known_mask.sum(dim=-1).float()
 
-        # Determine known points
-        known_mask = confidence > self.threshold  # (num_envs, num_objects, num_points)
+        total_knowns = known_count.sum(dim=-1)
+        total_knowns = torch.nan_to_num(total_knowns, nan=0.0)
 
-        # Count known points per object and normalize
-        known_count = known_mask.sum(dim=-1).float()  # (num_envs, num_objects)
-
-        # Sum per environment
-        total_knowns = known_count.sum(dim=-1)  # (num_envs,)
-
-        # Compute reward: only positive increase is rewarded
         reward = torch.clamp(total_knowns - self.last_knowns, min=0.0)
+        reward = torch.nan_to_num(reward, nan=0.0)
 
-        # Update state
         self.last_knowns = total_knowns
 
         return reward
@@ -245,3 +247,79 @@ class KnownInspectionPointsGainReward(ManagerTermBase):
         else:
             env_ids_tensor = torch.as_tensor(env_ids, device=self.env.device, dtype=torch.long)
             self.last_knowns[env_ids_tensor] = 0.0
+
+@torch.no_grad()
+def get_robot_closeness_to_ideal_inspection_pose(
+    env: ManagerBasedRLEnv,
+) -> torch.Tensor:
+    """
+    Computes a dual-scale reward based on the *proposed action command* 
+    (processed target position/orientation) instead of the robot's current state.
+    - Uses agent's processed actions (x, y, heading) as target pose.
+    - Coarse reward: larger sigmas (3m, pi rad)
+    - Fine reward: smaller sigmas (0.5m, 0.5 rad)
+    - If ideal pose is NaN, reward = 0.
+    """
+    device = env.device
+    E = env.num_envs
+
+    if not hasattr(env, "best_robot_pose"):
+        return torch.zeros(E, device=device)
+
+    ideal_pose = env.best_robot_pose  # (E, 3): x, y, yaw
+
+    # --- Get agent-proposed target pose from processed actions ---
+    if "viewpoint_action" not in env.action_manager._terms:
+        return torch.zeros(E, device=device)
+
+    pos_command_w = env.action_manager._terms["viewpoint_action"].pos_command_w
+    heading_command_w = env.action_manager._terms["viewpoint_action"].heading_command_w
+    processed = torch.cat([pos_command_w, heading_command_w.unsqueeze(-1)], dim=-1)
+    # processed: (E,4) → [x_norm, y_norm, dummy, heading_norm]
+    # We'll use indices [0,1,3]
+    target_pos = processed[:, :2]    # x, y (normalized local)
+    target_yaw = processed[:, 3]     # heading (normalized)
+
+    target_pos = torch.nan_to_num(target_pos, nan=0.0)
+    target_yaw = torch.nan_to_num(target_yaw, nan=0.0)
+
+    # --- Mask invalid ideal poses ---
+    valid_mask = ~torch.isnan(ideal_pose).any(dim=1)
+    if not valid_mask.any():
+        return torch.zeros(E, device=device)
+
+    # --- Differences (target command vs. ideal pose) ---
+    pos_diff = target_pos - ideal_pose[:, :2]
+    dist_pos = torch.norm(pos_diff, dim=1)
+
+    yaw_diff = torch.atan2(
+        torch.sin(target_yaw - ideal_pose[:, 2]),
+        torch.cos(target_yaw - ideal_pose[:, 2]),
+    ).abs()
+
+    # --- Dual-scale sigmas ---
+    sigma_pos_coarse = 3.0
+    sigma_yaw_coarse = torch.pi
+    sigma_pos_fine = 0.5
+    sigma_yaw_fine = 0.5
+
+    # Coarse reward
+    reward_pos_coarse = torch.exp(-(dist_pos**2) / (2 * sigma_pos_coarse**2))
+    reward_yaw_coarse = torch.exp(-(yaw_diff**2) / (2 * sigma_yaw_coarse**2))
+    reward_coarse = reward_pos_coarse * reward_yaw_coarse
+
+    # Fine reward
+    reward_pos_fine = torch.exp(-(dist_pos**2) / (2 * sigma_pos_fine**2))
+    reward_yaw_fine = torch.exp(-(yaw_diff**2) / (2 * sigma_yaw_fine**2))
+    reward_fine = reward_pos_fine * reward_yaw_fine
+
+    # Print dists, diffs and rewards
+    # print("Dist Pos (m):", dist_pos[valid_mask])
+    # print("Diff Yaw (rad):", yaw_diff[valid_mask])
+    # print("Reward Coarse:", reward_coarse[valid_mask])
+    # print("Reward Fine:", reward_fine[valid_mask])
+
+    reward = reward_coarse + reward_fine
+
+    reward[~valid_mask] = 0.0
+    return reward

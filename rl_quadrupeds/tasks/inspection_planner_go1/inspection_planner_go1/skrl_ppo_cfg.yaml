@@ -16,7 +16,7 @@ models:
       - name: net
         input: STATES
         layers: [512, 256, 128]
-        activations: ["elu", "elu", "tanh"]
+        activations: elu
     output: ACTIONS
   value:  # see deterministic_model parameters
     class: DeterministicMixin
@@ -40,7 +40,7 @@ memory:
 # https://skrl.readthedocs.io/en/latest/api/agents/ppo.html
 agent:
   class: PPO
-  rollouts: 32
+  rollouts: 512
   learning_epochs: 5
   mini_batches: 4
   discount_factor: 0.97

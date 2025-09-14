@@ -62,3 +62,18 @@ class ComputeObjectRelativePose(ManagerTermBase):
         rel_pose = torch.stack([rel_x, rel_y, rel_z, rel_yaw], dim=-1).reshape(B, -1)
 
         return rel_pose
+
+def distance_from_robot_to_each_inference_point(
+    env: ManagerBasedEnv,
+) -> torch.Tensor:
+    if hasattr(env, "uninspected_distances"):
+        return env.uninspected_distances.view(env.num_envs, -1)
+    else:
+        return torch.zeros(env.num_envs, 1, dtype=torch.float, device=env.device)
+
+def position_of_each_inference_point(env: ManagerBasedEnv) -> torch.Tensor:
+    if hasattr(env, "inference_points"):
+        # Repeat along batch dimension
+        return env.inference_points.unsqueeze(0).expand(env.num_envs, -1, -1).reshape(env.num_envs, -1)
+    else:
+        return torch.zeros(env.num_envs, 1, dtype=torch.float, device=env.device)

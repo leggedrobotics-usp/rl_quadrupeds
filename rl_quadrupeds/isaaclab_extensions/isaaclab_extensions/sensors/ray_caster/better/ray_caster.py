@@ -371,11 +371,17 @@ class BetterRayCaster(SensorBase):
         hits = torch.stack(all_hits, dim=1)  # (env, mesh, ray, 3)
         self.hits = hits
 
+        # compute distances
         dists = torch.norm(hits - sensor_pos_w[:, None, None, :], dim=-1)  # (env, mesh, ray)
         min_indices = torch.argmin(dists, dim=1)  # (env, ray)
-        self._data.hit_labels[env_ids] = min_indices.clone().float()
-        min_indices_exp = min_indices.unsqueeze(-1).expand(-1, -1, 3)
 
+        # detect invalid hits (inf present)
+        invalid_mask = torch.isinf(hits).any(dim=-1).all(dim=1)  # (env, ray)
+        labels = min_indices.clone().float()
+        labels[invalid_mask] = -1  # set -1 for no hit
+        self._data.hit_labels[env_ids] = labels
+
+        min_indices_exp = min_indices.unsqueeze(-1).expand(-1, -1, 3)
         selected_hits = torch.gather(
             hits, dim=1, index=min_indices_exp.unsqueeze(1)
         ).squeeze(1)

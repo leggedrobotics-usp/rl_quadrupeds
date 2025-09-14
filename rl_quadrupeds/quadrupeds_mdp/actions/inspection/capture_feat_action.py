@@ -1,15 +1,9 @@
 from __future__ import annotations
 
-from typing import (
-    Sequence, 
-    TYPE_CHECKING
-)
+from typing import Sequence, TYPE_CHECKING
 
 import torch
-from isaaclab.managers.action_manager import (
-    ActionTerm, 
-    ActionTermCfg
-)
+from isaaclab.managers.action_manager import ActionTerm, ActionTermCfg
 from isaaclab.assets import Articulation
 from isaaclab.markers import VisualizationMarkers
 from isaaclab.markers.config import DEFORMABLE_TARGET_MARKER_CFG
@@ -19,11 +13,11 @@ from isaaclab.utils import configclass
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
 
+
 class CaptureFeaturesAction(ActionTerm):
     """
     Action term responsible for determining whether to capture inspection 
     features from the environment using a sensor.
-    
     It exports a binary action to the environment in the variable 
     `capture_feat_action`.
     """
@@ -37,19 +31,19 @@ class CaptureFeaturesAction(ActionTerm):
         self.robot: Articulation = env.scene[cfg.asset_name]
 
         self._raw_actions = torch.zeros(
-            env.num_envs, 
-            dtype=torch.float32, 
+            (env.num_envs, 1),
+            dtype=torch.float32,
             device=env.device
         )
         self._processed_actions = torch.zeros(
-            env.num_envs, 
-            dtype=torch.float32, 
+            (env.num_envs, 1),
+            dtype=torch.float32,
             device=env.device
         )
 
         env.capture_feat_action = torch.zeros(
-            env.num_envs,
-            dtype=torch.float32, 
+            (env.num_envs, 1),
+            dtype=torch.float32,
             device=env.device
         )
 
@@ -65,16 +59,18 @@ class CaptureFeaturesAction(ActionTerm):
     @property
     def processed_actions(self) -> torch.Tensor:
         return self._processed_actions
-    
+
     def process_actions(self, actions: torch.Tensor):
-        # Ensure 1D shape [num_envs]
-        actions = actions.view(-1)
+        # Ensure 2D shape [num_envs, 1]
+        actions = actions.view(-1, 1)
 
         # Store raw actions
         self._raw_actions[:] = actions
 
         # Convert ELU outputs to binary: > 0 → 1, else 0
-        self._processed_actions[:] = (torch.tanh(actions) > 0.0).to(torch.float32)
+        # self._processed_actions[:] = (torch.tanh(actions / 5.0) > 0.0).to(torch.float32)
+        self._processed_actions = actions > 0.0
+        # self._processed_actions[:] = True
 
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         if env_ids is not None:
@@ -83,17 +79,11 @@ class CaptureFeaturesAction(ActionTerm):
 
     def apply_actions(self):
         # Set the capture feature action to the env
-        # The observations will be updated in the environment step based
-        # on this action.
         self.env.capture_feat_action[:] = self._processed_actions[:]
 
     def _set_debug_vis_impl(self, debug_vis: bool):
-        # set visibility of markers
-        # note: parent only deals with callbacks. not their visibility
         if debug_vis:
-            # create markers if necessary for the first tome
             if not hasattr(self, "capture_feat_visualizer"):
-                # -- goal
                 marker_cfg = DEFORMABLE_TARGET_MARKER_CFG.copy()
                 marker_cfg.prim_path = "/Visuals/Actions/capture_feat"
                 marker_cfg.markers["target"].radius = 0.1
@@ -107,21 +97,17 @@ class CaptureFeaturesAction(ActionTerm):
                 self.capture_feat_visualizer.set_visibility(False)
 
     def _debug_vis_callback(self, event):
-        # check if robot is initialized
-        # note: this is needed in-case the robot is de-initialized. we can't access the data
         if not self.robot.is_initialized:
             return
-        
-        # get marker location
+
         base_pos_w = self.robot.data.root_pos_w.clone()
         base_pos_w[:, 2] += 0.7
 
-        # get marker scale
         scale = self._processed_actions.clone()
-        scale = torch.stack([scale, scale, scale], dim=-1)
+        scale = torch.cat([scale, scale, scale], dim=-1)
 
-        # display markers
         self.capture_feat_visualizer.visualize(translations=base_pos_w, scales=scale)
+
 
 @configclass
 class CaptureFeaturesActionCfg(ActionTermCfg):

@@ -13,6 +13,7 @@ Available classes:
 - RaibertHeuristic: Computes the Raibert heuristic reward for a quadruped robot.
 """
 from collections.abc import Sequence
+from typing import List
 
 import torch
 from isaaclab.assets import RigidObject
@@ -27,7 +28,8 @@ from quadrupeds_mdp.utils import (
     batch_quaternion_rotate,
     convert_batch_foot_to_local_frame,
     quat_from_angle_axis,
-    quat_mul
+    quat_mul,
+    quat_to_yaw
 )
 
 class RaibertHeuristic(ManagerTermBase):
@@ -296,10 +298,104 @@ def viewpoint_action_rate_l2(
     env: ManagerBasedRLEnv,
 ) -> torch.Tensor:
     """
-    Computes the L2 norm of the action rate of the robot viewpoints (pos + orientation)
+    Computes a weighted L2 norm of the action rate of the robot viewpoints (pos + orientation).
+    Explicitly penalizes abrupt signal changes ("jumps") in x (0), y (1), and heading (3).
+    Continuous changes in the same direction are penalized less than sudden flips/jumps.
     """
-    return torch.sum(
-        torch.square(
-            env.action_manager._terms["viewpoint_action"].processed_actions - env.action_manager._terms["viewpoint_action"].last_actions
-        ), dim=1
+    processed = env.action_manager._terms["viewpoint_action"].processed_actions
+    last = env.action_manager._terms["viewpoint_action"].last_actions
+
+    diffs = processed - last
+
+    # Stronger weights for x (0), y (1), heading (3)
+    weights = torch.tensor([10.0, 10.0, 1.0, 8.0], device=diffs.device)
+
+    # Base penalty (L2 norm with weights)
+    base_penalty = torch.sum(torch.square(weights * diffs), dim=1)
+
+    # Detect jumps: sign flip or large sudden change compared to magnitude
+    jump_mask = (
+        torch.sign(processed) != torch.sign(last)
+    ) & (torch.abs(diffs) > 0.2)  # 0.2 = threshold for "big" change
+
+    # Apply extra jump penalty only to indices of interest (0,1,3)
+    jump_indices = torch.tensor([0, 1, 3], device=diffs.device)
+    jump_penalty = torch.sum(
+        torch.square(diffs[:, jump_indices]) * 2. * jump_mask[:, jump_indices],
+        dim=1,
     )
+
+    return base_penalty + jump_penalty
+
+@torch.no_grad()
+def viewpoint_towards_objects(
+    env: ManagerBasedRLEnv,
+    objects_of_interest: List[str],
+    max_angle: float = torch.pi / 12,  # 15 degrees
+    distance_weight: float = 0.25      # 1/(1 + k*d) proximity scaling; set 0 to disable
+) -> torch.Tensor:
+    """
+    Reward the robot for facing toward any object in `objects_of_interest`.
+    """
+    device = env.device
+    num_envs = env.num_envs
+    if len(objects_of_interest) == 0:
+        return torch.zeros(num_envs, device=device)
+
+    # Robot pose in local env frame (XY)
+    robot_pos = env.scene["robot"].data.root_pos_w[:, :2] - env.scene.env_origins[:, :2]
+    robot_pos = torch.nan_to_num(robot_pos, nan=0.0)
+
+    robot_rot = env.scene["robot"].data.root_link_state_w[:, 3:7]
+    robot_rot = torch.nan_to_num(robot_rot, nan=0.0)
+
+    # Convert quaternion to yaw
+    yaw = quat_to_yaw(robot_rot)
+    yaw = torch.nan_to_num(yaw, nan=0.0)
+
+    forward_vec = torch.stack([torch.cos(yaw), torch.sin(yaw)], dim=-1)  # [N, 2]
+    forward_vec = torch.nan_to_num(forward_vec, nan=0.0)
+
+    # Collect object positions
+    obj_positions = []
+    for name in objects_of_interest:
+        data = env.scene[name].data
+        if hasattr(data, "root_pos_w"):
+            pos = data.root_pos_w[:, :2] - env.scene.env_origins[:, :2]
+        else:
+            pos = data.default_root_state[:, :2]
+        obj_positions.append(torch.nan_to_num(pos, nan=0.0))
+
+    # [M, N, 2]
+    obj_pos = torch.stack(obj_positions, dim=0)
+
+    # Vectors from robot to each object
+    vec = obj_pos - robot_pos.unsqueeze(0)
+    vec = torch.nan_to_num(vec, nan=0.0)
+    dist = torch.norm(vec, dim=-1, keepdim=True)
+    dist = torch.nan_to_num(dist, nan=1e-6)
+
+    dir_unit = vec / (dist + 1e-6)
+    dir_unit = torch.nan_to_num(dir_unit, nan=0.0)
+
+    # Cosine similarity
+    cos_sim = (dir_unit * forward_vec.unsqueeze(0)).sum(dim=-1).clamp(-1.0, 1.0)
+    cos_sim = torch.nan_to_num(cos_sim, nan=0.0)
+
+    cos_thr = torch.cos(torch.as_tensor(max_angle, device=device, dtype=cos_sim.dtype))
+    angle_score = torch.relu(cos_sim - cos_thr) / (1.0 - cos_thr + 1e-6)
+    angle_score = torch.nan_to_num(angle_score, nan=0.0)
+
+    # Proximity scaling
+    if distance_weight > 0.0:
+        dist_factor = 1.0 / (1.0 + distance_weight * dist.squeeze(-1))
+        dist_factor = torch.nan_to_num(dist_factor, nan=0.0)
+        score = angle_score * dist_factor
+    else:
+        score = angle_score
+
+    # Best object score
+    reward = score.max(dim=0).values
+    reward = torch.nan_to_num(reward, nan=1.0, posinf=1.0, neginf=0.0)
+
+    return reward

@@ -6,6 +6,7 @@ from isaaclab.managers import (
 )
 
 from isaaclab_extensions.managers.reward import (
+    DebugRewardManager,
     ExponentialRewardManager,
     NormalizedRewardManager
 )
@@ -33,6 +34,7 @@ class CustomizableManagerBasedRLEnv(ManagerBasedRLEnv):
         self.termination_manager = TerminationManager(self.cfg.terminations, self)
         print("[INFO] Termination Manager: ", self.termination_manager)
         # -- reward manager
+        # self.reward_manager = DebugRewardManager(self.cfg.rewards, self)
         self.reward_manager = RewardManager(self.cfg.rewards, self)
         # self.reward_manager = ExponentialRewardManager(self.cfg.rewards, self)
         # self.reward_manager = NormalizedRewardManager(self.cfg.rewards, self)

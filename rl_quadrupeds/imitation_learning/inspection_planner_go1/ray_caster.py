@@ -5,13 +5,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-class RayCasterBuilderCfg:
-    def __init__(self):
+from cfg import Cfg
+
+class RayCasterBuilderCfg(Cfg):
+    def _define_defaults(self):
         # degrees
         self.horizontal_fov_range = (-180, 180)
         self.horizontal_res = 5.0  # degrees step
         self.max_distance = 5.0
-        self.noise_std = 0.01  # noise stddev added to distance measurements (meters)
+        self.noise_std = 0.1  # noise stddev added to distance measurements (meters)
 
         # position in robot frame (x,y)
         self.position_robot_frame = (0.0, 0.0)
@@ -142,7 +144,7 @@ class RayCasterBuilder:
         if show_hits:
             valid_mask = np.isfinite(dists_upto) & (dists_upto <= self.max_distance)
             ax.scatter(hits_upto[valid_mask, 0], hits_upto[valid_mask, 1],
-                    s=15, c="b", label="hits")
+                    s=15, c="orange", label="hits")
 
         ax.set_aspect("equal", adjustable="box")
         ax.legend()
@@ -293,6 +295,7 @@ class RayCasterBuilder:
             
         device = results["hits"].device
         fill_value = fill_value if fill_value is not None else float(self.max_distance)
+        label_norm = 1 if label_norm == 0 else label_norm
 
         hits = results["hits"].clone()      # (E,R,2)
         dists = results["dists"].clone()    # (E,R)
@@ -330,10 +333,12 @@ class RayCasterBuilder:
             if normalize:
                 data = data / float(dist_norm)
 
-
         # Append labels if requested
         if return_labels:
             lab = labels.float().unsqueeze(-1)
+            # Set label to -1 where hits are invalid
+            lab[no_hit_mask.unsqueeze(-1)] = -1.0
+            lab[~torch.isfinite(lab)] = -1.0
             if normalize:
                 lab = lab / float(label_norm)
             data = torch.cat([data, lab], dim=-1)
@@ -354,7 +359,7 @@ class RayCasterBuilder:
             flatten=True,
             normalize=normalized,
             dist_norm=self.cfg.max_distance,
-            label_norm=self.object_interest_builder.cfg.num_objects_per_env,
+            label_norm=self.object_interest_builder.cfg.num_objects_per_env - 1,
             fill_value=0.0,
             add_noise=noise,
         )

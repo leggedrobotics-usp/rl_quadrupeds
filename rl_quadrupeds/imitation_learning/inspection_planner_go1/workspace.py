@@ -3,8 +3,10 @@ from typing import Optional
 import matplotlib.pyplot as plt
 import torch
 
-class WorkspaceBuilderCfg():
-    def __init__(self):
+from cfg import Cfg
+
+class WorkspaceBuilderCfg(Cfg):
+    def _define_defaults(self):
         self.size_x = 3.0  # size of the workspace in x direction (m)
         self.size_y = 3.0  # size of the workspace in y direction (m)
 

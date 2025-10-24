@@ -17,9 +17,9 @@ from dataset import InspectionTeacherStudentDataset
 # adjust import path if your repo layout differs
 from rsl_rl.modules.actor_critic import ActorCritic
 
-
 def train_bc_actor_critic(
     num_epochs=10,
+    num_envs=2048,
     lr=1e-4,
     device="cuda:0",
     checkpoint=None,
@@ -39,7 +39,10 @@ def train_bc_actor_critic(
     writer = SummaryWriter(log_dir=run_dir)
 
     # dataset and dataloader
-    dataset = InspectionTeacherStudentDataset()
+    dataset = InspectionTeacherStudentDataset(
+        noise=True,
+        num_envs_per_simulation=num_envs,
+    )
     dataloader = DataLoader(
         dataset,
         batch_size=None,  # each item is already a batch
@@ -73,7 +76,7 @@ def train_bc_actor_critic(
     optimizer = optim.Adam(policy.actor.parameters(), lr=lr)
     criterion = nn.MSELoss()
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=5
+        optimizer, mode="min", factor=0.5, patience=0
     )
 
     start_epoch = 0
@@ -99,6 +102,7 @@ def train_bc_actor_critic(
             start_epoch = ckpt["iter"] + 1
 
     # === Training loop ===
+    last_avg_loss = float('inf')
     for epoch in range(start_epoch, num_epochs):
         epoch_loss = 0.0
         progress_bar = tqdm(dataloader, desc=f"Epoch {epoch}/{num_epochs-1}", leave=False)
@@ -133,8 +137,9 @@ def train_bc_actor_critic(
 
         scheduler.step(avg_loss)
 
-        # Save checkpoint every 10 epochs or final epoch
-        if (epoch + 1) % 10 == 0 or (epoch + 1) == num_epochs:
+        # Save checkpoint only if loss improved
+        if avg_loss < last_avg_loss:
+            last_avg_loss = avg_loss
             ckpt_path = os.path.join(ckpt_dir, f"checkpoint_epoch_{epoch}.pt")
             torch.save(
                 {
@@ -163,10 +168,12 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--device", type=str, default="cuda:0")
     parser.add_argument("--checkpoint", type=str, default=None)
+    parser.add_argument("--num-envs", type=int, default=2048)
     args = parser.parse_args()
 
     trained_policy = train_bc_actor_critic(
         num_epochs=args.epochs,
+        num_envs=args.num_envs,
         lr=args.lr,
         device=args.device,
         checkpoint=args.checkpoint,

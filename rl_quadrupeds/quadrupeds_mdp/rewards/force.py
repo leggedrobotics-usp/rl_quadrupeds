@@ -20,6 +20,7 @@ from isaaclab.managers.manager_base import ManagerTermBase
 from isaaclab.managers.manager_term_cfg import RewardTermCfg
 from isaaclab.sensors import ContactSensor
 
+@torch.no_grad()
 def track_feet_contact_schedule_forces(
     env: ManagerBasedRLEnv,
     sensor_cfg: SceneEntityCfg,

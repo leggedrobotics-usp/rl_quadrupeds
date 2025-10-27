@@ -17,6 +17,8 @@ from isaaclab.assets import RigidObject
 from isaaclab.envs import ManagerBasedRLEnv
 from isaaclab.managers import SceneEntityCfg
 
+from isaaclab.utils.math import quat_apply_yaw
+
 def track_lin_vel_xy_exp(
     env: ManagerBasedRLEnv, 
     std: float, 
@@ -25,20 +27,22 @@ def track_lin_vel_xy_exp(
 ) -> torch.Tensor:
     """
     Reward tracking of linear velocity commands (xy axes) using exponential kernel.
-    It sums the difference between the x and y components of the linear velocity and the command.
-    Taken from the paper "Walk These Ways: Tuning Robot Control for Generalization with Multiplicity of Behavior"
-    
-    $$ r_{v_{x,y}^{cmd}} = \exp(-|v_{xy} - v_{xy}^{cmd}|^2/\sigma_{v_{xy}})$$
-    
     """
     asset: RigidObject = env.scene[asset_cfg.name]
+
+    # Convert body-frame velocity to world-frame (yaw only)
+    base_lin_vel_world = quat_apply_yaw(asset.data.root_quat_w, asset.data.root_lin_vel_b)
+
+    # Compute error in world frame
     lin_vel_error = torch.sum(
         torch.square(
-            asset.data.root_lin_vel_b[:, :2] - env.command_manager.get_command(command_name)[:, :2]
+            base_lin_vel_world[:, :2] - env.command_manager.get_command(command_name)[:, :2]
         ),
         dim=1,
     )
+
     return torch.exp(-lin_vel_error / std)
+
 
 def track_lin_vel_xy_exp_sigma_squared(
     env: ManagerBasedRLEnv, 

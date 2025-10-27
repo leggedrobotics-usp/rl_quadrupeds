@@ -32,8 +32,8 @@ class ObjectInspectionCoverage(ManagerTermBase):
         device = env.device
 
         # ----------------------- static object selection -----------------------
-        self.valid_object_ids = torch.tensor([0], device=device, dtype=torch.long)
-        self.valid_object_names = ["block1"]
+        self.valid_object_ids = torch.tensor([0, 1], device=device, dtype=torch.long)
+        self.valid_object_names = ["block1", "block2"]
         self.valid_objects_rigid_objects = [env.scene[name] for name in self.valid_object_names]
 
         # ----------------------- hyper-parameters -------------------------------
@@ -487,6 +487,7 @@ class ObjectInspectionCoverage(ManagerTermBase):
         # Dot between robot forward and per-point face normal -> (E, D)
         dot = (fwd.unsqueeze(1) * normals_per_point).sum(-1)
         ORTHO_THRESHOLD = 0.95
+        # ORTHO_THRESHOLD = 0.
         orientation_mask = dot.abs() >= ORTHO_THRESHOLD   # (E, D)
         orientation_mask = orientation_mask.unsqueeze(1).expand(E, M, D)  # (E, M, D)
 

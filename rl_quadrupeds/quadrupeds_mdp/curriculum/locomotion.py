@@ -21,320 +21,125 @@ class Go1LocomotionCurriculumCfg(ManagerTermBase):
         # Very Conservative Curriculum (with is_terminated always active)
         # ============================================================
         self.STAGES = [
-            # Stage 0: Standing still, only flat orientation
+            # -------------------------------------------------------------
+            # Stage 0: Standing and balancing (static stability)
+            # -------------------------------------------------------------
             dict(
                 name="stage_00_flat_orientation",
                 command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
                 active_rewards=[
                     "_flat_orientation_l2",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 1: Add vertical velocity penalty
-            dict(
-                name="stage_01_lin_vel_z",
-                command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
-                active_rewards=[
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 2: Add joint position limits
-            dict(
-                name="stage_02_joint_pos_limits",
-                command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
-                active_rewards=[
-                    "_flat_orientation_l2",
                     "_lin_vel_z_l2",
                     "_joint_pos_limits",
                     "is_terminated",
                 ],
             ),
-            # Stage 3: Add joint acceleration penalty
+
+            # -------------------------------------------------------------
+            # Stage 1: Stable posture with torque and joint control
+            # -------------------------------------------------------------
             dict(
-                name="stage_03_joint_acc",
+                name="stage_01_posture_and_smoothness",
                 command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
                 active_rewards=[
                     "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
                     "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 4: Add action rate penalty
-            dict(
-                name="stage_04_action_rate",
-                command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
-                active_rewards=[
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 5: Add joint torque limit
-            dict(
-                name="stage_05_torque_limit",
-                command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
-                active_rewards=[
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 6: Add joint torques l2
-            dict(
-                name="stage_06_joint_torques_l2",
-                command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
-                active_rewards=[
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
                     "_joint_torques_l2",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 7: Add joint velocity tracking
-            dict(
-                name="stage_07_track_joint_vel",
-                command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
-                active_rewards=[
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
                     "_joint_acc_l2",
                     "_action_rate_l2",
                     "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
                     "is_terminated",
                 ],
             ),
-            # Stage 8: Add base height tracking
+
+            # -------------------------------------------------------------
+            # Stage 2: Controlled base height and no drift (static locomotion prep)
+            # -------------------------------------------------------------
             dict(
-                name="stage_08_base_height",
+                name="stage_02_base_height_alignment",
                 command_ranges=dict(lin_vel_x=(0.0, 0.0), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
                 active_rewards=[
                     "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
                     "_track_base_height_l2_cmd_no_sensor",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 9: Add forward velocity tracking
-            dict(
-                name="stage_09_track_lin_vel_xy",
-                command_ranges=dict(lin_vel_x=(0.0, 0.1), lin_vel_y=(0.0, 0.0), ang_vel_z=(0.0, 0.0)),
-                active_rewards=[
-                    "_track_lin_vel_xy_exp",
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 10: Add angular velocity tracking
-            dict(
-                name="stage_10_track_ang_vel_z",
-                command_ranges=dict(lin_vel_x=(-0.1, 0.2), lin_vel_y=(0.0, 0.0), ang_vel_z=(-0.05, 0.05)),
-                active_rewards=[
-                    "_track_lin_vel_xy_exp",
-                    "_track_ang_vel_z_exp",
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 11: Add trot gait synchronization
-            dict(
-                name="stage_11_trot_gait_sync",
-                command_ranges=dict(lin_vel_x=(-0.2, 0.3), lin_vel_y=(-0.05, 0.05), ang_vel_z=(-0.1, 0.1)),
-                active_rewards=[
-                    "_track_lin_vel_xy_exp",
-                    "_track_ang_vel_z_exp",
-                    "_trot_gait_sync",
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 12: Add foot deviation penalty
-            dict(
-                name="stage_12_foot_deviation",
-                command_ranges=dict(lin_vel_x=(-0.3, 0.4), lin_vel_y=(-0.1, 0.1), ang_vel_z=(-0.15, 0.15)),
-                active_rewards=[
-                    "_track_lin_vel_xy_exp",
-                    "_track_ang_vel_z_exp",
-                    "_trot_gait_sync",
                     "_penalize_foot_deviation_from_default",
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
+                    "_joint_torques_l2",
                     "_joint_acc_l2",
                     "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
                     "is_terminated",
                 ],
             ),
-            # Stage 13: Add footswing height tracking
+
+            # -------------------------------------------------------------
+            # Stage 3: Small linear and angular motions (gentle walking commands)
+            # -------------------------------------------------------------
             dict(
-                name="stage_13_footswing_tracking",
-                command_ranges=dict(lin_vel_x=(-0.4, 0.5), lin_vel_y=(-0.2, 0.2), ang_vel_z=(-0.2, 0.2)),
+                name="stage_03_small_motion",
+                command_ranges=dict(lin_vel_x=(-0.2, 0.2), lin_vel_y=(-0.1, 0.1), ang_vel_z=(-0.2, 0.2)),
                 active_rewards=[
                     "_track_lin_vel_xy_exp",
                     "_track_ang_vel_z_exp",
-                    "_trot_gait_sync",
-                    "_penalize_foot_deviation_from_default",
+                    "_flat_orientation_l2",
+                    "_track_base_height_l2_cmd_no_sensor",
+                    "_joint_torques_l2",
+                    "_joint_acc_l2",
+                    "_action_rate_l2",
+                    "_lin_vel_z_l2",
+                    "_ang_vel_xy_l2",
+                    "is_terminated",
+                ],
+            ),
+
+            # -------------------------------------------------------------
+            # Stage 4: Introducing gait structure (trot pattern learning)
+            # -------------------------------------------------------------
+            dict(
+                name="stage_04_trot_gait_learning",
+                command_ranges=dict(lin_vel_x=(-0.4, 0.4), lin_vel_y=(-0.2, 0.2), ang_vel_z=(-0.3, 0.3)),
+                active_rewards=[
+                    "_track_lin_vel_xy_exp",
+                    "_track_ang_vel_z_exp",
+                    "_trot_gait_positive",
+                    "_trot_gait_negative",
+                    "_trot_diag_joint_symmetry",
+                    "_diag_motion_balance",
                     "_track_footswing_height",
                     "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
+                    "_joint_torques_l2",
                     "_joint_acc_l2",
                     "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
                     "is_terminated",
                 ],
             ),
-            # Stage 14: Add joint position tracking
+
+            # -------------------------------------------------------------
+            # Stage 5: Full dynamic locomotion (final policy refinement)
+            # -------------------------------------------------------------
             dict(
-                name="stage_14_joint_position_tracking",
-                command_ranges=dict(lin_vel_x=(-0.5, 0.6), lin_vel_y=(-0.25, 0.25), ang_vel_z=(-0.25, 0.25)),
+                name="stage_05_full_locomotion",
+                command_ranges=dict(lin_vel_x=(-1.5, 1.5), lin_vel_y=(-0.5, 0.5), ang_vel_z=(-1.0, 1.0)),
                 active_rewards=[
                     "_track_lin_vel_xy_exp",
                     "_track_ang_vel_z_exp",
-                    "_trot_gait_sync",
-                    "_penalize_foot_deviation_from_default",
+                    "_trot_gait_positive",
+                    "_trot_gait_negative",
+                    "_trot_diag_joint_symmetry",
+                    "_diag_motion_balance",
                     "_track_footswing_height",
                     "_track_joint_positions_l2",
+                    "_penalize_hip_movement",
+                    "_track_feet_slip",
+                    "_staying_still_penalty",
                     "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
+                    "_track_base_height_l2_cmd_no_sensor",
+                    "_joint_torques_l2",
                     "_joint_acc_l2",
                     "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 15: Add Raibert footswing heuristic
-            dict(
-                name="stage_15_raibert_footswing",
-                command_ranges=dict(lin_vel_x=(-0.6, 0.7), lin_vel_y=(-0.3, 0.3), ang_vel_z=(-0.3, 0.3)),
-                active_rewards=[
-                    "_track_lin_vel_xy_exp",
-                    "_track_ang_vel_z_exp",
-                    "_trot_gait_sync",
-                    "_penalize_foot_deviation_from_default",
-                    "_track_footswing_height",
-                    "_track_joint_positions_l2",
-                    "raibert_footswing",
-                    "_flat_orientation_l2",
                     "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 16: Slightly broader motion
-            dict(
-                name="stage_16_broader_motion",
-                command_ranges=dict(lin_vel_x=(-0.8, 0.8), lin_vel_y=(-0.4, 0.4), ang_vel_z=(-0.35, 0.35)),
-                active_rewards=[
-                    "_track_lin_vel_xy_exp",
-                    "_track_ang_vel_z_exp",
-                    "_trot_gait_sync",
-                    "_track_footswing_height",
-                    "_track_joint_positions_l2",
-                    "_penalize_foot_deviation_from_default",
-                    "raibert_footswing",
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
-                    "is_terminated",
-                ],
-            ),
-            # Stage 17: Full robust trot
-            dict(
-                name="stage_17_robust_trot",
-                command_ranges=dict(lin_vel_x=(-1.0, 1.0), lin_vel_y=(-0.5, 0.5), ang_vel_z=(-0.5, 0.5)),
-                active_rewards=[
-                    "_track_lin_vel_xy_exp",
-                    "_track_ang_vel_z_exp",
-                    "_trot_gait_sync",
-                    "_track_footswing_height",
-                    "_track_joint_positions_l2",
-                    "_penalize_foot_deviation_from_default",
-                    "raibert_footswing",
-                    "_flat_orientation_l2",
-                    "_lin_vel_z_l2",
-                    "_joint_pos_limits",
-                    "_joint_acc_l2",
-                    "_action_rate_l2",
-                    "joint_torque_limit",
-                    "_joint_torques_l2",
-                    "_track_joint_vel_l2",
-                    "_track_base_height_l2_cmd_no_sensor",
+                    "_ang_vel_xy_l2",
                     "is_terminated",
                 ],
             ),
         ]
-
         self.NUM_STAGES = len(self.STAGES)
 
         # ============================================================

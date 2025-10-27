@@ -16,7 +16,12 @@ from dataclasses import MISSING
 
 from isaaclab.managers import CommandTermCfg
 from isaaclab.markers import VisualizationMarkersCfg
-from isaaclab.markers.config import CUBOID_MARKER_CFG
+from isaaclab.markers.config import (
+    BLUE_ARROW_X_MARKER_CFG,
+    CUBOID_MARKER_CFG, 
+    FRAME_MARKER_CFG, 
+    GREEN_ARROW_X_MARKER_CFG
+)
 from isaaclab.utils import configclass
 
 from .gait import (
@@ -29,6 +34,7 @@ from .position import (
     QuadrupedBaseHeightOrientationCommand,
     QuadrupedGaitFootswingHeightCommand,
 )
+from .velocity import UniformVelocityCommand
 
 @configclass
 class QuadrupedGaitFootswingHeightCommandCfg(CommandTermCfg):
@@ -149,3 +155,75 @@ class QuadrupedBaseHeightOrientationCommandCfg(CommandTermCfg):
     height_orientation_visualizer: VisualizationMarkersCfg = CUBOID_MARKER_CFG.replace(prim_path="/Visuals/Command/height_pose")
     # The size is a thin reactangle in the robot's base height plane.
     height_orientation_visualizer.markers["cuboid"].size = (0.5, 0.5, 0.01)
+
+@configclass
+class UniformVelocityCommandCfg(CommandTermCfg):
+    """Configuration for the uniform velocity command generator."""
+
+    class_type: type = UniformVelocityCommand
+
+    asset_name: str = MISSING
+    """Name of the asset in the environment for which the commands are generated."""
+
+    heading_command: bool = False
+    """Whether to use heading command or angular velocity command. Defaults to False.
+
+    If True, the angular velocity command is computed from the heading error, where the
+    target heading is sampled uniformly from provided range. Otherwise, the angular velocity
+    command is sampled uniformly from provided range.
+    """
+
+    heading_control_stiffness: float = 1.0
+    """Scale factor to convert the heading error to angular velocity command. Defaults to 1.0."""
+
+    rel_standing_envs: float = 0.0
+    """The sampled probability of environments that should be standing still. Defaults to 0.0."""
+
+    rel_heading_envs: float = 1.0
+    """The sampled probability of environments where the robots follow the heading-based angular velocity command
+    (the others follow the sampled angular velocity command). Defaults to 1.0.
+
+    This parameter is only used if :attr:`heading_command` is True.
+    """
+
+    rel_noise_envs: float = 0.0
+    """The sampled probability of environments where noise is added to the command. Defaults to 0.0."""
+
+    @configclass
+    class Ranges:
+        """Uniform distribution ranges for the velocity commands."""
+
+        lin_vel_x: tuple[float, float] = MISSING
+        """Range for the linear-x velocity command (in m/s)."""
+
+        lin_vel_y: tuple[float, float] = MISSING
+        """Range for the linear-y velocity command (in m/s)."""
+
+        ang_vel_z: tuple[float, float] = MISSING
+        """Range for the angular-z velocity command (in rad/s)."""
+
+        heading: tuple[float, float] | None = None
+        """Range for the heading command (in rad). Defaults to None.
+
+        This parameter is only used if :attr:`~UniformVelocityCommandCfg.heading_command` is True.
+        """
+
+    ranges: Ranges = MISSING
+    """Distribution ranges for the velocity commands."""
+
+    noise_ranges: Ranges = None
+    """Distribution ranges for the noise added to the velocity commands. Defaults to None."""
+
+    goal_vel_visualizer_cfg: VisualizationMarkersCfg = GREEN_ARROW_X_MARKER_CFG.replace(
+        prim_path="/Visuals/Command/velocity_goal"
+    )
+    """The configuration for the goal velocity visualization marker. Defaults to GREEN_ARROW_X_MARKER_CFG."""
+
+    current_vel_visualizer_cfg: VisualizationMarkersCfg = BLUE_ARROW_X_MARKER_CFG.replace(
+        prim_path="/Visuals/Command/velocity_current"
+    )
+    """The configuration for the current velocity visualization marker. Defaults to BLUE_ARROW_X_MARKER_CFG."""
+
+    # Set the scale of the visualization markers to (0.5, 0.5, 0.5)
+    goal_vel_visualizer_cfg.markers["arrow"].scale = (0.5, 0.5, 0.5)
+    current_vel_visualizer_cfg.markers["arrow"].scale = (0.5, 0.5, 0.5)

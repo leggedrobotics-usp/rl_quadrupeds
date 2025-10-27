@@ -15,10 +15,7 @@ from isaaclab.envs.mdp.rewards import (             # MDP rewards
 from isaaclab.managers import RewardTermCfg as RewTerm, SceneEntityCfg
 from isaaclab.utils import configclass
 
-from quadrupeds_mdp.assets.go1 import (
-    GO1_FOOT_NAMES,
-    GO1_JOINT_NAMES
-)
+from quadrupeds_mdp.assets.go1 import GO1_FOOT_NAMES
 from quadrupeds_mdp.rewards.angular_velocity import (
     track_ang_vel_z_exp
 )
@@ -26,31 +23,23 @@ from quadrupeds_mdp.rewards.linear_velocity import (
     track_lin_vel_xy_exp
 )
 from quadrupeds_mdp.rewards.position import (
-    DiagonalFootTrotPositive,
-    DiagonalFootTrotNegative,
-    DiagonalJointSymmetryReward,
-    DiagonalMotionBalanceReward,
+    DiagonalFootTrotSynchronization,
     FootDeviationPenalty,
     track_base_height_l2_cmd_no_sensor,
     track_footswing_height,
     track_joint_positions_l2,
-    penalize_hip_movement,
-    NoMotionWhenStationary
 )
 from quadrupeds_mdp.rewards.contact import get_illegal_contact
 from quadrupeds_mdp.rewards.force import track_feet_contact_schedule_forces
 from quadrupeds_mdp.rewards.linear_velocity import track_joint_vel_l2
 from isaaclab.envs.mdp.rewards import joint_torques_l2
-from quadrupeds_mdp.rewards.position import RaibertHeuristic
-
-from quadrupeds_mdp.rewards.force import track_feet_slip
 
 @configclass
 class RewardsCfg:
     # Task
     _track_lin_vel_xy_exp = RewTerm(            # In WTW paper and code
         func=track_lin_vel_xy_exp, 
-        weight=4,
+        weight=10,
         params={
             "command_name": "base_velocity",
             "std": math.sqrt(0.25)
@@ -58,7 +47,7 @@ class RewardsCfg:
     )
     _track_ang_vel_z_exp = RewTerm(             # In WTW paper and code
         func=track_ang_vel_z_exp,
-        weight=4,
+        weight=10,
         params={
             "command_name": "base_velocity",
             "std": math.sqrt(0.25)
@@ -67,7 +56,7 @@ class RewardsCfg:
     # Augmented Auxiliary
     _track_footswing_height = RewTerm(          # In WTW paper and code
         func=track_footswing_height,
-        weight=-10,
+        weight=-100,
         params={
             "asset_cfg": SceneEntityCfg(
                 "robot",
@@ -79,8 +68,8 @@ class RewardsCfg:
         }
     )
     # Fixed Auxiliary
-    _lin_vel_z_l2 = RewTerm(func=lin_vel_z_l2, weight=-5)          # In WTW paper and code
-    _ang_vel_xy_l2 = RewTerm(func=ang_vel_xy_l2, weight=-0.016)         # In WTW paper and code
+    _lin_vel_z_l2 = RewTerm(func=lin_vel_z_l2, weight=-50)          # In WTW paper and code
+    _ang_vel_xy_l2 = RewTerm(func=ang_vel_xy_l2, weight=-0.16)         # In WTW paper and code
     # _undesired_contacts = RewTerm(                                    # In WTW paper and code
     #     func=undesired_contacts,
     #     weight=-1000,
@@ -96,37 +85,30 @@ class RewardsCfg:
     #     func=get_illegal_contact,
     #     weight=-1,
     # )
-    _joint_pos_limits = RewTerm(func=joint_pos_limits, weight=-5)                  # In WTW paper and code
-    _joint_acc_l2 = RewTerm(func=joint_acc_l2, weight=-0.00000005)                     # In WTW paper and code
-    _action_rate_l2 = RewTerm(func=action_rate_l2, weight=-0.02)                       # In WTW paper and code
+    _joint_pos_limits = RewTerm(func=joint_pos_limits, weight=-50)                  # In WTW paper and code
+    _joint_acc_l2 = RewTerm(func=joint_acc_l2, weight=-0.0000005)                     # In WTW paper and code
+    _action_rate_l2 = RewTerm(func=action_rate_l2, weight=-0.05)                       # In WTW paper and code
 
     # Only present in WTW code
-    _flat_orientation_l2 = RewTerm(func=flat_orientation_l2, weight=-2)            # Only in WTW code
-    _track_joint_positions_l2 = RewTerm(func=track_joint_positions_l2, weight=-0.3) # Only in WTW code
-    _penalize_hip_movement = RewTerm(func=penalize_hip_movement, weight=-1, params={
-        "asset_cfg": SceneEntityCfg(
-            "robot",
-            body_names=[".*_hip"],
-            preserve_order=True
-        ),
-    })
+    _flat_orientation_l2 = RewTerm(func=flat_orientation_l2, weight=-20)            # Only in WTW code
+    _track_joint_positions_l2 = RewTerm(func=track_joint_positions_l2, weight=-0.5)   # Only in WTW code
 
     # Only present in laboratory code
     joint_torque_limit = RewTerm(
         func=applied_torque_limits,
-        weight=-250
+        weight=-2500
     )
 
     # I chose to use it
     is_terminated = RewTerm(
         func=is_terminated_term,
-        weight=-1000,
+        weight=-10000,
         params={"term_keys": "base_contact"}
     )
 
     _penalize_foot_deviation_from_default = RewTerm(
         func=FootDeviationPenalty,
-        weight=-10,
+        weight=-15,
         params={
             "robot_cfg": SceneEntityCfg(
                 "robot",
@@ -137,7 +119,7 @@ class RewardsCfg:
     )
     _track_base_height_l2_cmd_no_sensor = RewTerm(
         func=track_base_height_l2_cmd_no_sensor,
-        weight=-19,
+        weight=-80,
         params={
             "command_name": "body_height_orientation_cmd",
             "asset_cfg": SceneEntityCfg(
@@ -148,70 +130,29 @@ class RewardsCfg:
         }
     )
 
-    # Positive reward term: encourages proper trot
-    _trot_gait_positive = RewTerm(
-        func=DiagonalFootTrotPositive,
-        weight=0.2,  # positive reward
+    _trot_gait_sync = RewTerm(
+        func=DiagonalFootTrotSynchronization,
+        weight=2.5,
         params={
             "robot_cfg": SceneEntityCfg(name="robot", body_names=GO1_FOOT_NAMES),
             "scale": 8.0,
         }
     )
 
-    # Negative reward term: penalizes undesired gaits (pacing, bounding, pronking)
-    _trot_gait_negative = RewTerm(
-        func=DiagonalFootTrotNegative,
-        weight=-0.2,  # positive weight: multiplies later, so higher means less penalty
-        params={
-            "robot_cfg": SceneEntityCfg(name="robot", body_names=GO1_FOOT_NAMES),
-            "scale": 8.0,
-        }
-    )
-
-    _trot_diag_joint_symmetry = RewTerm(
-        func=DiagonalJointSymmetryReward,
-        weight=0.25,  # scale applied here
-        params={
-            "robot_cfg": SceneEntityCfg(name="robot", body_names=[joint.replace("_joint", "") for joint in GO1_JOINT_NAMES]),
-        },
-    )
-
-    _diag_motion_balance = RewTerm(
-        func=DiagonalMotionBalanceReward,
-        weight=0.1,
-        params={
-            "robot_cfg": SceneEntityCfg(name="robot", body_names=[joint.replace("_joint", "") for joint in GO1_JOINT_NAMES]),
-        }
-    )
-    
-    _staying_still_penalty = RewTerm(
-        func=NoMotionWhenStationary,
-        weight=-0.3,
-        params={
-            "robot_cfg": SceneEntityCfg(
-                name="robot",
-                joint_names=GO1_JOINT_NAMES,  # use joint names instead of body_names
-                preserve_order=True,
-            ),
-            "command_name": "base_velocity",
-            "torque_weight": 0.3,
-            "velocity_threshold": 0.05,
-        },
-    )
 
     # ======= NOT USED =======
     # ======= WTW Paper - Agumented Auxiliary =======
-    # _track_feet_contact_schedule_forces = RewTerm(
-    #     func=track_feet_contact_schedule_forces,
-    #     weight=20,
-    #     params={
-    #         "sensor_cfg": SceneEntityCfg(
-    #             "contact_forces", 
-    #             body_names=".*foot"
-    #         ),
-    #         "std": 0.25,
-    #     }
-    # )
+    _track_feet_contact_schedule_forces = RewTerm(
+        func=track_feet_contact_schedule_forces,
+        weight=10,
+        params={
+            "sensor_cfg": SceneEntityCfg(
+                "contact_forces", 
+                body_names=".*foot"
+            ),
+            "std": 0.25,
+        }
+    )
     # from quadrupeds_mdp.rewards.linear_velocity import track_foot_contact_schedule_velocities,
     # _track_foot_contact_schedule_velocities = RewTerm(
     #     func=track_foot_contact_schedule_velocities,
@@ -248,6 +189,7 @@ class RewardsCfg:
     #         "orientation_cmd": "body_height_orientation_cmd",
     #     }
     # )
+    # from quadrupeds_mdp.rewards.position import RaibertHeuristic
     # raibert_footswing = RewTerm(
     #     func=RaibertHeuristic,
     #     weight=-100,
@@ -262,20 +204,21 @@ class RewardsCfg:
     # )
 
     # ======= WTW Paper - Fixed Auxiliary =======
-    _track_feet_slip = RewTerm(
-        func=track_feet_slip,
-        weight=-0.25,
-        params={
-            "sensor_cfg": SceneEntityCfg(
-                "contact_forces",
-                body_names=".*foot"
-            ),
-            "asset_cfg": SceneEntityCfg(
-                "robot",
-                body_names=".*foot"
-            ),
-        }
-    )
+    # from quadrupeds_mdp.rewards.force import track_feet_slip
+    # _track_feet_slip = RewTerm(
+    #     func=track_feet_slip,
+    #     weight=0,
+    #     params={
+    #         "sensor_cfg": SceneEntityCfg(
+    #             "contact_forces",
+    #             body_names=".*foot"
+    #         ),
+    #         "asset_cfg": SceneEntityCfg(
+    #             "robot",
+    #             body_names=".*foot"
+    #         ),
+    #     }
+    # )
     _joint_torques_l2 = RewTerm(func=joint_torques_l2, weight=-0.0025)
     _track_joint_vel_l2 = RewTerm(func=track_joint_vel_l2, weight=-0.003)
     # from isaaclab.envs.mdp.rewards import joint_deviation_l1

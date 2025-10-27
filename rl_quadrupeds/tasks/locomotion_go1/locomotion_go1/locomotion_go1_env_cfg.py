@@ -8,6 +8,8 @@ from .mdp.events_cfg import EventCfg
 from .mdp.observations_cfg import ObservationsCfg
 from .mdp.rewards_cfg import RewardsCfg
 from .mdp.terminations_cfg import TerminationsCfg
+from .mdp.curriculum_cfg import CurriculumCfg
+from .mdp.recorders_cfg import RecordersCfg
 
 @configclass
 class Go1LocomotionEnvCfg(ManagerBasedRLEnvCfg):
@@ -21,6 +23,8 @@ class Go1LocomotionEnvCfg(ManagerBasedRLEnvCfg):
     observations: ObservationsCfg = ObservationsCfg()
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
+    # curriculum: CurriculumCfg = CurriculumCfg()
+    # recorders: RecordersCfg = RecordersCfg()
 
     def __post_init__(self) -> None:
         # general settings

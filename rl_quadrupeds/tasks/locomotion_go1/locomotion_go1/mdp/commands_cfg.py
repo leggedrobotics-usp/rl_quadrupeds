@@ -1,6 +1,5 @@
 import math
 from isaaclab.utils import configclass
-from isaaclab.envs.mdp.commands.commands_cfg import UniformVelocityCommandCfg
 
 from quadrupeds_mdp.assets.gaits import GAIT_TIMING_OFFSETS
 from quadrupeds_mdp.commands.commands_cfg import (
@@ -10,6 +9,7 @@ from quadrupeds_mdp.commands.commands_cfg import (
     QuadrupedGaitFrequencyCommandCfg,
     QuadrupedGaitStanceDistancesCommandCfg,
     QuadrupedGaitTypeCommandCfg,
+    UniformVelocityCommandCfg
 )
 
 # Big time range sampling to avoid resampling during the episode.
@@ -18,10 +18,17 @@ ONCE_PER_EPISODE = (1000, 1000)
 
 # Used by other tasks to use the locomotion policy.
 uniform_velocity_range = UniformVelocityCommandCfg.Ranges(
-    lin_vel_x=(-0.6, 0.6), 
-    lin_vel_y=(-0.6, 0.6), 
-    ang_vel_z=(-0.5, 0.5),
-    heading=(-2*math.pi, 2*math.pi)
+    lin_vel_x=(-1.5, 1.5), 
+    lin_vel_y=(-0.5, 0.5), 
+    ang_vel_z=(-1, 1),
+    heading=(-math.pi, math.pi)
+)
+
+noise_velocity_range = UniformVelocityCommandCfg.Ranges(
+    lin_vel_x=(-0.05, 0.05),
+    lin_vel_y=(-0.05, 0.05),
+    ang_vel_z=(-0.05, 0.05),
+    heading=(-0.05, 0.05)
 )
 
 @configclass
@@ -31,9 +38,11 @@ class CommandsCfg:
         resampling_time_range=(20., 20.),
         rel_standing_envs=0.05,
         rel_heading_envs=1.0,
+        rel_noise_envs=0.35,
         heading_command=True,
         heading_control_stiffness=0.5,
         debug_vis=True,
+        noise_ranges=None,
         ranges=uniform_velocity_range
     )
     body_height_orientation_cmd = QuadrupedBaseHeightOrientationCommandCfg(
@@ -48,7 +57,7 @@ class CommandsCfg:
     )
     gait_freq_cmd = QuadrupedGaitFrequencyCommandCfg(
         asset_name="robot",
-        ranges=QuadrupedGaitFrequencyCommandCfg.Ranges(frequency=(4, 4)),
+        ranges=QuadrupedGaitFrequencyCommandCfg.Ranges(frequency=(1.5, 1.5)),
         resampling_time_range=ONCE_PER_EPISODE,
         debug_vis=False
     )

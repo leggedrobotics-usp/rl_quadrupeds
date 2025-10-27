@@ -17,6 +17,7 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": f"{__name__}.locomotion_go1_env_cfg:Go1LocomotionEnvCfg",
         "skrl_cfg_entry_point": f"{__name__}:skrl_ppo_cfg.yaml",
+        "rsl_rl_cfg_entry_point": f"{__name__}.rsl_rl_ppo_cfg:Go1LocomotionPPORunnerCfg",
     },
 )
 print(gym.spec("Go1-Locomotion").kwargs)

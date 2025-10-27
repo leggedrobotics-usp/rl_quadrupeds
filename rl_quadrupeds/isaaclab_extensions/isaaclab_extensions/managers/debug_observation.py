@@ -258,55 +258,24 @@ class ObservationManagerDebug(ManagerBase):
         return obs_buffer
 
     def compute_group(self, group_name: str) -> torch.Tensor | dict[str, torch.Tensor]:
-        """Computes the observations for a given group.
+        # (Your existing docstring and validation code...)
 
-        The observations for a given group are computed by calling the registered functions for each
-        term in the group. The functions are called in the order of the terms in the group. The functions
-        are expected to return a tensor with shape (num_envs, ...).
-
-        The following steps are performed for each observation term:
-
-        1. Compute observation term by calling the function
-        2. Apply custom modifiers in the order specified in :attr:`ObservationTermCfg.modifiers`
-        3. Apply corruption/noise model based on :attr:`ObservationTermCfg.noise`
-        4. Apply clipping based on :attr:`ObservationTermCfg.clip`
-        5. Apply scaling based on :attr:`ObservationTermCfg.scale`
-
-        We apply noise to the computed term first to maintain the integrity of how noise affects the data
-        as it truly exists in the real world. If the noise is applied after clipping or scaling, the noise
-        could be artificially constrained or amplified, which might misrepresent how noise naturally occurs
-        in the data.
-
-        Args:
-            group_name: The name of the group for which to compute the observations. Defaults to None,
-                in which case observations for all the groups are computed and returned.
-
-        Returns:
-            Depending on the group's configuration, the tensors for individual observation terms are
-            concatenated along the last dimension into a single tensor. Otherwise, they are returned as
-            a dictionary with keys corresponding to the term's name.
-
-        Raises:
-            ValueError: If input ``group_name`` is not a valid group handled by the manager.
-        """
-        # check ig group name is valid
         if group_name not in self._group_obs_term_names:
             raise ValueError(
                 f"Unable to find the group '{group_name}' in the observation manager."
                 f" Available groups are: {list(self._group_obs_term_names.keys())}"
             )
-        # iterate over all the terms in each group
+
         group_term_names = self._group_obs_term_names[group_name]
-        # buffer to store obs per group
         group_obs = dict.fromkeys(group_term_names, None)
-        # read attributes for each term
         obs_terms = zip(group_term_names, self._group_obs_term_cfgs[group_name])
 
-        # evaluate terms: compute, add noise, clip, scale, custom modifiers
+        print(f"\n=== COMPUTING GROUP '{group_name}' ===\n")
+
         for term_name, term_cfg in obs_terms:
-            # compute term's value
             obs: torch.Tensor = term_cfg.func(self._env, **term_cfg.params).clone()
-            # apply post-processing
+
+            # Apply modifiers, noise, clip, scale (same as your code)
             if term_cfg.modifiers is not None:
                 for modifier in term_cfg.modifiers:
                     obs = modifier.func(obs, **modifier.params)
@@ -316,25 +285,36 @@ class ObservationManagerDebug(ManagerBase):
                 obs = obs.clip_(min=term_cfg.clip[0], max=term_cfg.clip[1])
             if term_cfg.scale is not None:
                 obs = obs.mul_(term_cfg.scale)
-            # Update the history buffer if observation term has history enabled
+
+            # Update and print buffer contents
             if term_cfg.history_length > 0:
-                self._group_obs_term_history_buffer[group_name][term_name].append(obs)
+                buffer_obj = self._group_obs_term_history_buffer[group_name][term_name]
+                buffer_obj.append(obs)
+
                 if term_cfg.flatten_history_dim:
-                    group_obs[term_name] = self._group_obs_term_history_buffer[group_name][term_name].buffer.reshape(
-                        self._env.num_envs, -1
-                    )
+                    group_obs[term_name] = buffer_obj.buffer.reshape(self._env.num_envs, -1)
                 else:
-                    group_obs[term_name] = self._group_obs_term_history_buffer[group_name][term_name].buffer
+                    group_obs[term_name] = buffer_obj.buffer
+
+                print(f"\n--- Observation Term: '{term_name}' ---")
+                print(f"Shape: {buffer_obj.buffer.shape}")
+                print(f"Full Buffer Content:\n{buffer_obj.buffer}")
+                print(f"Most Recent Entry:\n{buffer_obj.buffer[:, -1, :]}")
+                print("-" * 60)
+
             else:
                 group_obs[term_name] = obs
-        # Print each term's content for debugging
-        for name, obs in group_obs.items():
-            print(f"Observation Term '{name}' ({obs.shape}):")
-            print(obs)
+                print(f"\n--- Observation Term: '{term_name}' ---")
+                print(f"Shape: {obs.shape}")
+                print(f"Tensor Content:\n{obs}")
+                print("-" * 60)
 
-        # concatenate all observations in the group together
+        print(f"\n=== END OF GROUP '{group_name}' ===\n")
+
         if self._group_obs_concatenate[group_name]:
-            return torch.cat(list(group_obs.values()), dim=-1)
+            concatenated = torch.cat(list(group_obs.values()), dim=-1)
+            print(f"\nConcatenated Observation Tensor ({concatenated.shape}):\n{concatenated}")
+            return concatenated
         else:
             return group_obs
 

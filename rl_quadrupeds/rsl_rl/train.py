@@ -186,7 +186,16 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
     if agent_cfg.resume or agent_cfg.algorithm.class_name == "Distillation":
         print(f"[INFO]: Loading model checkpoint from: {resume_path}")
         # load previously trained model
+        #TODO: make sure to remove load_optimizer after doing destillation experiments
         runner.load(resume_path, load_optimizer=False)
+
+    # FREEZING THE ACTOR
+    # TODO: make sure to remove this after doing destillation experiments
+    # actor_critic = runner.alg.policy  # this holds the networks
+    # for p in actor_critic.actor.parameters():
+    #     p.requires_grad = False
+    # if hasattr(actor_critic, "log_std"):
+    #     actor_critic.log_std.requires_grad = False
 
     # dump the configuration into log-directory
     dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)

@@ -92,7 +92,7 @@ class Go1InspectionPlannerSceneCfg(InteractiveSceneCfg):
             # "/World/envs/env_.*/front_wall",
             # "/World/envs/env_.*/back_wall",
             "/World/envs/env_.*/block_1",
-            # "/World/envs/env_.*/block_2"
+            "/World/envs/env_.*/block_2"
         ],
         attach_yaw_only=True,
         pattern_cfg=patterns.LidarPatternCfg(
@@ -113,4 +113,4 @@ class Go1InspectionPlannerSceneCfg(InteractiveSceneCfg):
     # front_wall = create_wall("front_wall", (0.05, 3.0, 1.0), (0.0, -1.5, 0.5))
     # back_wall  = create_wall("back_wall",  (0.05, 3.0, 1.0), (0.0, 1.5, 0.5))
     block1 = create_block("block_1", (0.0, 0.0, 0.25))
-    # block2 = create_block("block_2", (-1.0, -2.0, 0.25))
+    block2 = create_block("block_2", (0.0, 0.0, 0.25))

@@ -27,13 +27,14 @@ from quadrupeds_mdp.observations.state import robot_is_ready_for_new_command
 class NavObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
+        history_length = 3
         # robot_is_ready = ObsTerm(func=robot_is_ready_for_new_command)
 
         viewpoint = ObsTerm(
             func=local_viewpoint,
             params={
                 "asset_cfg": SceneEntityCfg("robot"),
-                "xy_norm": 3.0,
+                "xy_norm": 2.,
                 "heading_norm": 3.14,
             },
         )
@@ -41,16 +42,16 @@ class NavObservationsCfg:
         # base_lin_vel = ObsTerm(func=base_lin_vel)
         # base_ang_vel = ObsTerm(func=base_ang_vel)
 
-        # # Last action taken by the robot
-        # viewpoint_action = ObsTerm(
-        #     func=last_action, 
-        #     params={"action_name": "viewpoint_action"}
-        # )
+        # Last action taken by the robot
+        viewpoint_action = ObsTerm(
+            func=last_action, 
+            params={"action_name": "viewpoint_action"}
+        )
 
-        # capture_feat_action = ObsTerm(
-        #     func=last_action, 
-        #     params={"action_name": "capture_feat_action"}
-        # )
+        capture_feat_action = ObsTerm(
+            func=last_action, 
+            params={"action_name": "capture_feat_action"}
+        )
 
         # LiDAR hits with object labels
         # Continuous, used for navigation in the environment

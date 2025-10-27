@@ -5,4 +5,5 @@ from quadrupeds_mdp.curriculum.inspection import inspection_levels
 
 @configclass
 class CurriculumCfg:
-    inspection_levels = CurrTerm(func=inspection_levels)
+    pass
+    # inspection_levels = CurrTerm(func=inspection_levels)

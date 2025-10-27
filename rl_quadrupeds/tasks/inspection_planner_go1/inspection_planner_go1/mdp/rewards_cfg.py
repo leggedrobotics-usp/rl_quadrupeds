@@ -24,6 +24,7 @@ from quadrupeds_mdp.rewards.exploration import (
     get_env_exploration_percentage
 )
 from quadrupeds_mdp.rewards.position import (
+    viewpoint_action_l2,
     viewpoint_action_rate_l2,
     viewpoint_towards_objects
 )
@@ -47,7 +48,7 @@ class RewardsCfg:
     #     func=viewpoint_towards_objects,
     #     weight=5,
     #     params={
-    #         "objects_of_interest": ["block1"],
+    #         "objects_of_interest": ["block1", "block2"],
     #         "distance_weight": 0,
     #     }
     # )
@@ -95,12 +96,12 @@ class RewardsCfg:
 
     inspection_done = RewTerm(
         func=get_if_inspection_done,
-        weight=1000,
+        weight=10000,
     )
 
     illegal_contact = RewTerm(
         func=is_terminated_term,
-        weight=-1000,
+        weight=-10000,
         params={"term_keys": "base_contact"}
     )
 
@@ -115,7 +116,13 @@ class RewardsCfg:
     #     weight=5,
     # )
 
-    # is_alive = RewTerm(
-    #     func=is_alive,
-    #     weight=-0.01
-    # )
+    is_alive = RewTerm(
+        func=is_alive,
+        weight=-0.01
+    )
+
+    # specifics for imitation learning + reinforcement learning
+    viewpoint_action_l2 = RewTerm(
+        func=viewpoint_action_l2,
+        weight=-0.1
+    )

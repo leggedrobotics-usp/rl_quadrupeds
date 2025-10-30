@@ -6,7 +6,6 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 
 @configclass
 class Go1LocomotionPPORunnerCfg(RslRlOnPolicyRunnerCfg):
-    # num_steps_per_env = 512
     num_steps_per_env = 16
     max_iterations = 100000
     save_interval = 10
@@ -28,8 +27,8 @@ class Go1LocomotionPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         entropy_coef=0.4,
         num_learning_epochs=4,
         num_mini_batches=8,
-        # num_learning_epochs=32,
-        # num_mini_batches=128,
+        # num_learning_epochs=16,
+        # num_mini_batches=64,
         learning_rate=1e-3,
         schedule="adaptive",
         gamma=0.99,

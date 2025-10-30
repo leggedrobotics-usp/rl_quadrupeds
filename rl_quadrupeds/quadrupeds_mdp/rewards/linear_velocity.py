@@ -27,22 +27,22 @@ def track_lin_vel_xy_exp(
 ) -> torch.Tensor:
     """
     Reward tracking of linear velocity commands (xy axes) using exponential kernel.
+    Both command and measured velocities are expressed in the robot's body frame.
     """
     asset: RigidObject = env.scene[asset_cfg.name]
 
-    # Convert body-frame velocity to world-frame (yaw only)
-    base_lin_vel_world = quat_apply_yaw(asset.data.root_quat_w, asset.data.root_lin_vel_b)
+    # Both are in the body frame -> no frame conversion
+    base_lin_vel_body = asset.data.root_lin_vel_b
+    cmd_lin_vel_body = env.command_manager.get_command(command_name)
 
-    # Compute error in world frame
+    # Compute squared error in body frame (xy components)
     lin_vel_error = torch.sum(
-        torch.square(
-            base_lin_vel_world[:, :2] - env.command_manager.get_command(command_name)[:, :2]
-        ),
+        torch.square(base_lin_vel_body[:, :2] - cmd_lin_vel_body[:, :2]),
         dim=1,
     )
 
+    # Exponential kernel reward
     return torch.exp(-lin_vel_error / std)
-
 
 def track_lin_vel_xy_exp_sigma_squared(
     env: ManagerBasedRLEnv, 

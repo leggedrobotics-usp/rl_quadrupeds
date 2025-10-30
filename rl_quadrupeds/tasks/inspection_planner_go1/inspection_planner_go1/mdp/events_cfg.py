@@ -17,7 +17,7 @@ class EventCfg:
         func=reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (-2, 2), "y": (-2, 2), "z": (0.4, 0.4), "yaw": (-3.14, 3.14)},
+            "pose_range": {"x": (-3, 3), "y": (-3, 3), "z": (0.4, 0.4), "yaw": (-3.14, 3.14)},
             "velocity_range": {
                 "x": (0.0, 0.0),
                 "y": (0.0, 0.0),

@@ -16,8 +16,8 @@ class ActionsCfg:
         locomotion_actions=locomotion_cfg.actions.joint_pos,
         locomotion_observations=locomotion_cfg.observations.policy,
         ranges=RobotPlannerActionTrainedNavigationCfg.Ranges(
-            pos_x=(-1.5, 1.5),
-            pos_y=(-1.5, 1.5),
+            pos_x=(-3, 3),
+            pos_y=(-3, 3),
             heading=(-3.14, 3.14),
             v_linear_x=(vel_ranges.lin_vel_x[0], vel_ranges.lin_vel_x[1]),
             v_linear_y=(vel_ranges.lin_vel_y[0], vel_ranges.lin_vel_y[1]),

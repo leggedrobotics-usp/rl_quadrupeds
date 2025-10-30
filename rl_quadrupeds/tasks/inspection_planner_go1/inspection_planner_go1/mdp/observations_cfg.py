@@ -34,7 +34,7 @@ class NavObservationsCfg:
             func=local_viewpoint,
             params={
                 "asset_cfg": SceneEntityCfg("robot"),
-                "xy_norm": 2.,
+                "xy_norm": 3.,
                 "heading_norm": 3.14,
             },
         )

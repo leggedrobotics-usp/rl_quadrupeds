@@ -11,7 +11,7 @@ class ActionsCfg:
     viewpoint_action = RobotPlannerActionTrainedNavigationCfg(
         asset_name="robot",
         # locomotion_policy_path="/rl_quadrupeds/logs/skrl/go1_locomotion/best_loc_2025-06-10_08-28-10_ppo_torch/policy.jit.pt",
-        locomotion_policy_path="/rl_quadrupeds/logs/rsl_rl/go1_locomotion/2025-10-27_06-03-17/exported/policy.jit.pt",
+        locomotion_policy_path="/rl_quadrupeds/logs/rsl_rl/go1_locomotion/2025-10-28_21-15-38/exported/policy.jit.pt",
         locomotion_decimation=4,
         locomotion_actions=locomotion_cfg.actions.joint_pos,
         locomotion_observations=locomotion_cfg.observations.policy,

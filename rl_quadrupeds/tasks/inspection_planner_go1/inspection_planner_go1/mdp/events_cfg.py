@@ -39,10 +39,10 @@ class EventCfg:
     )
 
     reset_block1 = EventTerm(
-        func=reset_root_state_uniform_if_inspection_done,
+        func=reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (-0.7, -0.7), "y": (-0.7, -0.7), "z": (0., 0.), "yaw": (0., 0.)},
+            "pose_range": {"x": (-2, 2), "y": (-2, 2), "z": (0., 0.), "yaw": (0., 0.)},
             "velocity_range": {
                 "x": (0.0, 0.0),
                 "y": (0.0, 0.0),
@@ -56,10 +56,10 @@ class EventCfg:
     )
 
     reset_block2 = EventTerm(
-        func=reset_root_state_uniform_if_inspection_done,
+        func=reset_root_state_uniform,
         mode="reset",
         params={
-            "pose_range": {"x": (0.7, 0.7), "y": (0.7, 0.7), "z": (0., 0.), "yaw": (0., 0.)},
+            "pose_range": {"x": (-2, 2), "y": (-2, 2), "z": (0., 0.), "yaw": (0., 0.)},
             "velocity_range": {
                 "x": (0.0, 0.0),
                 "y": (0.0, 0.0),

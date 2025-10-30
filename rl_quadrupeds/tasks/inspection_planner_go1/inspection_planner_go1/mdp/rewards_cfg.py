@@ -25,6 +25,7 @@ from quadrupeds_mdp.rewards.exploration import (
 )
 from quadrupeds_mdp.rewards.position import (
     viewpoint_action_l2,
+    viewpoint_action_flip_penalty,
     viewpoint_action_rate_l2,
     viewpoint_towards_objects
 )
@@ -125,4 +126,9 @@ class RewardsCfg:
     viewpoint_action_l2 = RewTerm(
         func=viewpoint_action_l2,
         weight=-0.1
+    )
+
+    viewpoint_action_flip_penalty = RewTerm(
+        func=viewpoint_action_flip_penalty,
+        weight=-1
     )

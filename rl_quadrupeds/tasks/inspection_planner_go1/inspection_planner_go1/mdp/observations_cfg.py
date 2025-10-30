@@ -27,7 +27,7 @@ from quadrupeds_mdp.observations.state import robot_is_ready_for_new_command
 class NavObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
-        history_length = 3
+        history_length = 10
         # robot_is_ready = ObsTerm(func=robot_is_ready_for_new_command)
 
         viewpoint = ObsTerm(

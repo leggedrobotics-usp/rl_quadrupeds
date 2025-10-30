@@ -323,7 +323,7 @@ class RobotPlannerActionTrainedNavigationCfg(ActionTermCfg):
     # Step resolutions
     resolution_x: float = 0.5
     resolution_y: float = 0.5
-    resolution_yaw: float = 3.14
+    resolution_yaw: float = torch.pi
 
     k_pos: float = 1.5
     k_yaw: float = 1.5

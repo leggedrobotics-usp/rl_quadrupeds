@@ -32,6 +32,7 @@ class InspectionTeacherStudentDataset(Dataset):
             device=self.device, 
             cfg_json=cfg_json
         )
+        self.simulator.build(new_simulation=True)
 
     def __len__(self):
         return self.num_simulations_per_epoch

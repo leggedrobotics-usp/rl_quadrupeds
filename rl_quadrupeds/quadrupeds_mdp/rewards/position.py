@@ -529,6 +529,30 @@ def viewpoint_action_l2(
         ), dim=1
     )
 
+def viewpoint_action_flip_penalty(env: ManagerBasedRLEnv, threshold: float = 0.1):
+    """
+    Penalize viewpoint action sign flips (positive↔negative) between consecutive steps,
+    except when both actions are near zero.
+    """
+    actions = env.action_manager._terms["viewpoint_action"].processed_actions  # (batch, action_dim)
+    
+    # Compute difference across time: compare t with t-1
+    prev_actions = torch.roll(actions, shifts=1, dims=0)
+    
+    # Detect sign flips: sign product < 0 means sign flipped
+    sign_flip_mask = (actions * prev_actions) < 0
+    
+    # Allow small near-zero changes (e.g. -0.01 ↔ 0.02)
+    near_zero_mask = (torch.abs(actions) < threshold) & (torch.abs(prev_actions) < threshold)
+    
+    # Penalize flips only when not near zero
+    effective_flips = sign_flip_mask & (~near_zero_mask)
+    
+    # Optionally scale penalty by magnitude of the change
+    penalty = torch.sum(effective_flips.float(), dim=1)
+    
+    return penalty
+
 class DiagonalFootBase(ManagerTermBase):
     """Base class providing shared circular helpers and setup."""
 
@@ -769,3 +793,55 @@ class NoMotionWhenStationary(ManagerTermBase):
 
         # Return as reward
         return total_penalty
+
+class AllFeetOffGroundPenalty(ManagerTermBase):
+    """
+    Penalizes the agent if all feet are off the ground simultaneously.
+
+    Uses the contact force sensor (sensor_cfg) to determine if each foot is touching the ground.
+
+    Requirements:
+        - The environment must provide a contact sensor with data.net_forces_w_history
+          of shape [num_envs, history, num_feet, 3].
+    """
+
+    def __init__(self, cfg, env: ManagerBasedRLEnv):
+        super().__init__(cfg, env)
+
+    def __call__(self, env: ManagerBasedRLEnv, sensor_cfg: SceneEntityCfg, contact_force_threshold: float = 1.0) -> torch.Tensor:
+        """
+        Compute a penalty when all feet are off the ground using contact forces.
+
+        Args:
+            env: The RL environment.
+            sensor_cfg: Configuration for the contact force sensor.
+            contact_force_threshold: Minimum force magnitude (in N) to consider a foot in contact.
+
+        Returns:
+            torch.Tensor: Penalty per environment (0 = stable, 1 = all feet off ground).
+        """
+        # Retrieve the contact force sensor
+        contact_sensor = env.scene[sensor_cfg.name]
+
+        # Contact forces in world frame: [num_envs, history, num_feet, 3]
+        contact_forces = contact_sensor.data.net_forces_w_history  # tensor
+
+        # Option 1: use only the latest frame (most recent contact info)
+        recent_forces = contact_forces[:, -1, :, :]  # [num_envs, num_feet, 3]
+
+        # Option 2 (alternative): smooth by averaging over history
+        # recent_forces = contact_forces.mean(dim=1)
+
+        # Compute per-foot contact magnitudes
+        contact_magnitudes = torch.linalg.norm(recent_forces, dim=-1)  # [num_envs, num_feet]
+
+        # Determine if each foot is in contact (1 = contact, 0 = no contact)
+        feet_in_contact = (contact_magnitudes > contact_force_threshold).float()
+
+        # Count how many feet are touching the ground
+        num_feet_in_contact = torch.sum(feet_in_contact, dim=1)
+
+        # Penalty = 1.0 if all feet are off ground
+        all_off_ground = (num_feet_in_contact == 0).float()
+
+        return all_off_ground

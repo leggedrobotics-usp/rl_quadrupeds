@@ -25,6 +25,7 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--task", type=str, default=None, help="Name of the task.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--max_iterations", type=int, default=None, help="RL Policy training iterations.")
+parser.add_argument("--freeze_actor", action="store_true", default=False, help="Freeze actor network during training.")
 parser.add_argument(
     "--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes."
 )
@@ -191,11 +192,13 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
 
     # FREEZING THE ACTOR
     # TODO: make sure to remove this after doing destillation experiments
-    # actor_critic = runner.alg.policy  # this holds the networks
-    # for p in actor_critic.actor.parameters():
-    #     p.requires_grad = False
-    # if hasattr(actor_critic, "log_std"):
-    #     actor_critic.log_std.requires_grad = False
+    if args_cli.freeze_actor:
+        print("[INFO]: Freezing actor network parameters.")
+        actor_critic = runner.alg.policy  # this holds the networks
+        for p in actor_critic.actor.parameters():
+            p.requires_grad = False
+        if hasattr(actor_critic, "log_std"):
+            actor_critic.log_std.requires_grad = False
 
     # dump the configuration into log-directory
     dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)

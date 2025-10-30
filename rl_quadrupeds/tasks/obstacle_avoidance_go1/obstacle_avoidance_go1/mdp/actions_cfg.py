@@ -12,7 +12,8 @@ class ActionsCfg:
     # the manual_cmd below. 
     hl_vel = RobotVelocityActionTrainedLocomotionCfg(
         asset_name="robot",
-        policy_path="/rl_quadrupeds/logs/skrl/go1_locomotion/best_loc_2025-06-10_08-28-10_ppo_torch/policy.jit.pt",
+        # policy_path="/rl_quadrupeds/logs/skrl/go1_locomotion/best_loc_2025-06-10_08-28-10_ppo_torch/policy.jit.pt",
+        locomotion_policy_path="/rl_quadrupeds/logs/rsl_rl/go1_locomotion/2025-10-28_21-15-38/exported/policy.jit.pt",
         low_level_decimation=4,
         low_level_actions=locomotion_cfg.actions.joint_pos,
         low_level_observations=locomotion_cfg.observations.policy,

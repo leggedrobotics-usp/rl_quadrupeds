@@ -13,13 +13,10 @@
   "object_interest_builder_cfg": {
     "size_x": [0.5, 0.5],
     "size_y": [0.5, 0.5],
-    "x": [0, 0],
-    "y": [0, 0],
-    "determistic_positions": [
-      [-0.7, 0.7],
-      [0.7, -0.7]
-    ],
-    "heading": [0.0, 0.0],
+    "x": [-2.0, 2.0],
+    "y": [-2.0, 2.0],
+    "determistic_positions": null,
+    "heading": ["-pi", "pi"],
     "num_objects_per_env": 2,
     "contour_points_per_edge": 7
   },
@@ -34,8 +31,8 @@
   "robot_builder_cfg": {
     "size_x": 0.6,
     "size_y": 0.4,
-    "x": [-2.0, 2.0],
-    "y": [-2.0, 2.0],
+    "x": [-3.0, 3.0],
+    "y": [-3.0, 3.0],
     "heading": ["-pi", "pi"],
     "noise_std": {
       "x": 0.05,
@@ -44,8 +41,8 @@
     }
   },
   "workspace_builder_cfg": {
-    "size_x": 4.0,
-    "size_y": 4.0
+    "size_x": 6.0,
+    "size_y": 6.0
   },
   "expert_policy_cfg": {
     "offset_from_face": 1,

@@ -198,8 +198,9 @@ class Simulator:
         )
 
         # Update last viewpoint (4 elements) and capture_feat for next step
-        self._last_viewpoint = act[:, :4].detach().clone()
-        self._last_capture_feat = act[:, 4:].detach().clone()
+        self._last_viewpoint[:, :3] = act[:, :3].detach().clone()      # x, y
+        self._last_viewpoint[:, 3] = 0                              # z (always 0)
+        self._last_capture_feat = act[:, 3:].detach().clone()       # capture_feat
 
         return obs, act
 

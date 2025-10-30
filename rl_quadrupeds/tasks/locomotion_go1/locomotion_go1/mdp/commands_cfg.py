@@ -18,7 +18,7 @@ ONCE_PER_EPISODE = (1000, 1000)
 
 # Used by other tasks to use the locomotion policy.
 uniform_velocity_range = UniformVelocityCommandCfg.Ranges(
-    lin_vel_x=(-1.5, 1.5), 
+    lin_vel_x=(-0.5, 0.5), 
     lin_vel_y=(-0.5, 0.5), 
     ang_vel_z=(-1, 1),
     heading=(-math.pi, math.pi)

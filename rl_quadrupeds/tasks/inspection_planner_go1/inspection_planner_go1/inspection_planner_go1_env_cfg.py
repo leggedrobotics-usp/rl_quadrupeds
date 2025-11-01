@@ -14,7 +14,7 @@ from .mdp.curriculum_cfg import CurriculumCfg
 class Go1InspectionPlannerEnvCfg(ManagerBasedRLEnvCfg):
     scene: Go1InspectionPlannerSceneCfg = Go1InspectionPlannerSceneCfg(
         num_envs=512, 
-        env_spacing=10.
+        env_spacing=20.
     )
     actions: ActionsCfg = ActionsCfg()
     commands: CommandsCfg = CommandsCfg()
@@ -27,7 +27,7 @@ class Go1InspectionPlannerEnvCfg(ManagerBasedRLEnvCfg):
     def __post_init__(self) -> None:
         # general settings
         self.decimation = 4
-        self.episode_length_s = 30.
+        self.episode_length_s = 50.
         # viewer settings
         self.viewer.eye = (8.0, 0.0, 5.0)
         # simulation settings

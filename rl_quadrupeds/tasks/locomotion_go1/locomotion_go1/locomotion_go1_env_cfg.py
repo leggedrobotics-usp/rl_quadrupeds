@@ -23,7 +23,7 @@ class Go1LocomotionEnvCfg(ManagerBasedRLEnvCfg):
     observations: ObservationsCfg = ObservationsCfg()
     rewards: RewardsCfg = RewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
-    # curriculum: CurriculumCfg = CurriculumCfg()
+    curriculum: CurriculumCfg = CurriculumCfg()
     # recorders: RecordersCfg = RecordersCfg()
 
     def __post_init__(self) -> None:

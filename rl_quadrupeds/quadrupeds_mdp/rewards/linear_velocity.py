@@ -20,29 +20,18 @@ from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.math import quat_apply_yaw
 
 def track_lin_vel_xy_exp(
-    env: ManagerBasedRLEnv, 
-    std: float, 
-    command_name: str, 
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
+    env,
+    std: float,
+    command_name: str,
+    asset_cfg=None
 ) -> torch.Tensor:
-    """
-    Reward tracking of linear velocity commands (xy axes) using exponential kernel.
-    Both command and measured velocities are expressed in the robot's body frame.
-    """
-    asset: RigidObject = env.scene[asset_cfg.name]
-
-    # Both are in the body frame -> no frame conversion
+    """Bonus: Track linear velocity commands (xy) — returns [0, 1]."""
+    asset = env.scene[asset_cfg.name]
     base_lin_vel_body = asset.data.root_lin_vel_b
     cmd_lin_vel_body = env.command_manager.get_command(command_name)
-
-    # Compute squared error in body frame (xy components)
-    lin_vel_error = torch.sum(
-        torch.square(base_lin_vel_body[:, :2] - cmd_lin_vel_body[:, :2]),
-        dim=1,
-    )
-
-    # Exponential kernel reward
-    return torch.exp(-lin_vel_error / std)
+    lin_vel_error = torch.sum(torch.square(base_lin_vel_body[:, :2] - cmd_lin_vel_body[:, :2]), dim=1)
+    bonus = torch.exp(-lin_vel_error / std)
+    return torch.clip(bonus, 0.0, 1.0)
 
 def track_lin_vel_xy_exp_sigma_squared(
     env: ManagerBasedRLEnv, 
@@ -99,19 +88,12 @@ def track_foot_contact_schedule_velocities(
         dim=1
     )
 
-def track_joint_vel_l2(
-    env: ManagerBasedRLEnv,
-    asset_cfg: SceneEntityCfg = SceneEntityCfg("robot")
-) -> torch.Tensor:
-    """
-    Tracks the magnitude of the joint velocities.
-    """
-    asset: RigidObject = env.scene[asset_cfg.name]
+def track_joint_vel_l2(env, asset_cfg=SceneEntityCfg("robot"), k: float = 5.0):
+    asset = env.scene[asset_cfg.name]
     joint_vel = asset.data.joint_vel[:, asset_cfg.joint_ids]
-    return torch.sum(
-        torch.square(joint_vel),
-        dim=1
-    )
+    penalty_val = torch.sum(torch.square(joint_vel), dim=1)
+    penalty = -torch.exp(-k * penalty_val)  # [-1, 0]
+    return penalty
 
 def track_feet_contact_velocity(
     env: ManagerBasedRLEnv,
@@ -134,3 +116,22 @@ def track_feet_contact_velocity(
         )
     )
     return torch.sum(near_ground * foot_velocities, dim=1)
+
+def lin_vel_z_penalty(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
+    """Penalty: z-axis linear velocity — returns [-1, 0]."""
+    asset = env.scene[asset_cfg.name]
+    penalty_val = torch.square(asset.data.root_lin_vel_b[:, 2])
+    penalty = -torch.exp(-k * penalty_val) + 1  # shift so 0 = perfect
+    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+
+def ang_vel_xy_penalty(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
+    """Penalty: xy-axis angular velocity — returns [-1, 0]."""
+    asset = env.scene[asset_cfg.name]
+    penalty_val = torch.sum(torch.square(asset.data.root_ang_vel_b[:, :2]), dim=1)
+    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+    
+def joint_acc_penalty(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
+    """Penalty: joint accelerations — returns [-1, 0]."""
+    asset = env.scene[asset_cfg.name]
+    penalty_val = torch.sum(torch.square(asset.data.joint_acc[:, asset_cfg.joint_ids]), dim=1)
+    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)

@@ -53,32 +53,18 @@ def track_feet_contact_schedule_forces(
         dim=1
     )
 
-def track_feet_slip(
-    env: ManagerBasedRLEnv,
-    sensor_cfg: SceneEntityCfg,
-    asset_cfg: SceneEntityCfg
-) -> torch.Tensor:
-    """
-    Tracks if the feet are slipping by multiplying the contact
-    sensor data with the feet xy velocities.
-    """
-    asset: RigidObject = env.scene[asset_cfg.name]
-    contact_sensor: ContactSensor = env.scene[sensor_cfg.name]
+def track_feet_slip(env, sensor_cfg, asset_cfg, k: float = 5.0):
+    asset = env.scene[asset_cfg.name]
+    contact_sensor = env.scene[sensor_cfg.name]
 
-    # The contact with the ground considers the current measured feet forces
-    # and the last ones. It is used to filter the noise of the contact sensor.
     contact = torch.logical_or(
-        contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, 2] > 1, 
-        contact_sensor.data.net_forces_w_history[:, -2, sensor_cfg.body_ids, 2] > 1
+        contact_sensor.data.net_forces_w[:, sensor_cfg.body_ids, 2] > 1,
+        contact_sensor.data.net_forces_w_history[:, -2, sensor_cfg.body_ids, 2] > 1,
     )
-    feet_velocities = torch.norm(
-        asset.data.body_lin_vel_w[:, asset_cfg.body_ids, 0:2], #xy velocity
-        dim=2
-    )
-    return torch.sum(
-        contact*torch.square(feet_velocities),
-        dim=1
-    )
+    feet_velocities = torch.norm(asset.data.body_lin_vel_w[:, asset_cfg.body_ids, 0:2], dim=2)
+    slip_penalty = torch.sum(contact * torch.square(feet_velocities), dim=1)
+    penalty = -torch.exp(-k * slip_penalty)  # [-1, 0]
+    return penalty
 
 def track_feet_contact_forces(
     env: ManagerBasedRLEnv,
@@ -135,3 +121,19 @@ class TrackFeetImpactVel(ManagerTermBase):
             ),
             dim=1
         )
+
+def applied_torque_limits_bonus(env, asset_cfg=None, k: float = 2.0) -> torch.Tensor:
+    """Bonus: keep applied torques within limits — returns [0, 1]."""
+    asset = env.scene[asset_cfg.name]
+    out_of_limits = torch.abs(
+        asset.data.applied_torque[:, asset_cfg.joint_ids] - asset.data.computed_torque[:, asset_cfg.joint_ids]
+    )
+    penalty_val = torch.sum(out_of_limits, dim=1)
+    bonus = torch.exp(-k * penalty_val)
+    return torch.clip(bonus, 0.0, 1.0)
+
+def joint_torques_l2(env, asset_cfg=SceneEntityCfg("robot"), k: float = 5.0):
+    asset = env.scene[asset_cfg.name]
+    penalty_val = torch.sum(torch.square(asset.data.applied_torque[:, asset_cfg.joint_ids]), dim=1)
+    penalty = -torch.exp(-k * penalty_val)  # [-1, 0]
+    return penalty

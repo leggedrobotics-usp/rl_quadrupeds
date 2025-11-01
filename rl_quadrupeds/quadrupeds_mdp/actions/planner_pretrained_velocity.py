@@ -184,7 +184,8 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         reached_mask = (pos_err < self._pos_tol) & (heading_err < self._heading_tol)
 
         # Mark environments that are ready for a new command
-        self._env.is_ready_for_new_command[reached_mask] = True
+        # self._env.is_ready_for_new_command[reached_mask] = True
+        self._env.is_ready_for_new_command[:] = True
 
         # Check for non-zero NN proposals (avoid freezing due to idle output)
         non_zero_mask = torch.any(actions.abs() > 1e-5, dim=1)

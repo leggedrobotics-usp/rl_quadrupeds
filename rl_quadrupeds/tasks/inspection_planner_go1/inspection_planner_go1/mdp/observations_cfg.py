@@ -28,7 +28,7 @@ class NavObservationsCfg:
     @configclass
     class PolicyCfg(ObsGroup):
         history_length = 10
-        # robot_is_ready = ObsTerm(func=robot_is_ready_for_new_command)
+        robot_is_ready = ObsTerm(func=robot_is_ready_for_new_command)
 
         viewpoint = ObsTerm(
             func=local_viewpoint,

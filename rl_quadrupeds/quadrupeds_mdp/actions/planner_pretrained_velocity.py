@@ -83,8 +83,8 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
         self.K = getattr(cfg, "num_waypoints", 1)
 
         # thresholds for considering a command "reached"
-        self._pos_tol = getattr(cfg, "pos_reached_tol", 0.30)
-        self._heading_tol = getattr(cfg, "heading_reached_tol", 0.4)
+        self._pos_tol = torch.ones(self.num_envs, device=self.device) * 0.5
+        self._heading_tol = torch.ones(self.num_envs, device=self.device) * 0.2
 
     # ---------------------- Properties ----------------------
     @property
@@ -128,7 +128,13 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
 
     # ---------------------- High-level command processing ----------------------
     def process_actions(self, actions: torch.Tensor):
-        """Interpret NN outputs as relative movement in body-frame, clip to arena, convert to world-frame."""
+        """Interpret NN outputs as relative movement in body-frame, clip to arena, convert to world-frame.
+
+        Modified:
+        - Freezes the goal position until the robot reaches the current goal.
+        - Only accepts new goals when the previous goal is reached (within tolerance).
+        - Ignores new NN commands if the agent outputs a zero vector.
+        """
         if self.cfg.manual_cmd is not None:
             self._nav_actions[:] = self._env.command_manager.get_command(self.cfg.manual_cmd)
             return
@@ -139,52 +145,63 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
             self.observation_reset_done = True
 
         device = self.device
-
         current_pos_w = self.robot.data.root_pos_w[:, :3]
         current_heading = self.robot.data.heading_w
         root_quat_w = self.robot.data.root_quat_w
         default_z_w = self.robot.data.default_root_state[:, 2]
         env_origins_w = self._env.scene.env_origins
 
-        res = torch.tensor([self.cfg.resolution_x,
-                            self.cfg.resolution_y,
-                            self.cfg.resolution_yaw], device=device)
+        res = torch.tensor(
+            [self.cfg.resolution_x, self.cfg.resolution_y, self.cfg.resolution_yaw],
+            device=device,
+        )
 
+        # Interpret NN outputs as delta in body frame
         delta_body = actions * res
-        valid_proposal_mask = (delta_body.abs().sum(dim=1) > 0.0)
-
         delta_body_3d = torch.zeros(self.num_envs, 3, device=device)
         delta_body_3d[:, :2] = delta_body[:, :2]
 
+        # Compute world-frame proposal
         delta_world_3d = quat_rotate_inverse(yaw_quat(root_quat_w), delta_body_3d)
         proposed_pos_w = current_pos_w + delta_world_3d
         proposed_pos_w[:, 2] = default_z_w
-
         proposed_pos_local = proposed_pos_w - env_origins_w
-        proposed_pos_local[:, 0] = torch.clamp(proposed_pos_local[:, 0],
-                                               self.cfg.ranges.pos_x[0], self.cfg.ranges.pos_x[1])
-        proposed_pos_local[:, 1] = torch.clamp(proposed_pos_local[:, 1],
-                                               self.cfg.ranges.pos_y[0], self.cfg.ranges.pos_y[1])
+
+        # Clamp to arena bounds
+        proposed_pos_local[:, 0] = torch.clamp(
+            proposed_pos_local[:, 0], self.cfg.ranges.pos_x[0], self.cfg.ranges.pos_x[1]
+        )
+        proposed_pos_local[:, 1] = torch.clamp(
+            proposed_pos_local[:, 1], self.cfg.ranges.pos_y[0], self.cfg.ranges.pos_y[1]
+        )
         new_pos_w = proposed_pos_local + env_origins_w
         new_pos_w[:, 2] = default_z_w
-
         new_heading_w = wrap_to_pi(current_heading + delta_body[:, 2])
 
-        ready_mask = self._env.is_ready_for_new_command[:, 0]
-        accept_mask = ready_mask & valid_proposal_mask
-        accept_mask[:] = True
+        # --- Check which environments have reached their goals ---
+        pos_err = torch.norm(self.pos_command_w[:, :2] - current_pos_w[:, :2], dim=1)
+        heading_err = torch.abs(wrap_to_pi(self.heading_command_w - current_heading))
+        reached_mask = (pos_err < self._pos_tol) & (heading_err < self._heading_tol)
 
+        # Mark environments that are ready for a new command
+        self._env.is_ready_for_new_command[reached_mask] = True
+
+        # Check for non-zero NN proposals (avoid freezing due to idle output)
+        non_zero_mask = torch.any(actions.abs() > 1e-5, dim=1)
+
+        # --- Update commands only if ready AND proposal is non-zero ---
+        accept_mask = self._env.is_ready_for_new_command.flatten() & non_zero_mask
         if accept_mask.any():
-            idxs = accept_mask.nonzero(as_tuple=False).squeeze(1)
-            self.pos_command_w[idxs] = new_pos_w[idxs]
-            self.heading_command_w[idxs] = new_heading_w[idxs]
-            self._env.is_ready_for_new_command[idxs, 0] = False
+            self.pos_command_w[accept_mask] = new_pos_w[accept_mask]
+            self.heading_command_w[accept_mask] = new_heading_w[accept_mask]
+            self._env.is_ready_for_new_command[accept_mask] = False
 
+        # Compute body-frame errors
         target_vec_w = self.pos_command_w - current_pos_w
         self.pos_command_b[:] = quat_rotate_inverse(yaw_quat(root_quat_w), target_vec_w)
         self.heading_command_b[:] = wrap_to_pi(self.heading_command_w - current_heading)
 
-        # processed actions (for visualization)
+        # For visualization/logging
         self.last_action.copy_(self._processed_actions)
         max_pos_x = self.cfg.ranges.pos_x[1] - self.cfg.ranges.pos_x[0]
         max_pos_y = self.cfg.ranges.pos_y[1] - self.cfg.ranges.pos_y[0]
@@ -197,8 +214,14 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
 
     # ---------------------- Apply actions ----------------------
     def apply_actions(self):
+        """Apply navigation controller + locomotion policy.
+
+        Modified:
+        - Only updates velocity commands toward the current frozen goal.
+        - Freezes navigation commands until the goal is reached.
+        - Ensures rotation happens via the shortest angular distance (wrap to [-pi, pi]).
+        """
         if self.cfg.manual_cmd is None:
-            # separate limits for x and y
             linear_x_min, linear_x_max = self.cfg.ranges.v_linear_x
             linear_y_min, linear_y_max = self.cfg.ranges.v_linear_y
             angular_min, angular_max = self.cfg.ranges.v_angular
@@ -207,34 +230,40 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
             nav_old = self._nav_actions.clone()
             nav_new = torch.zeros_like(self._nav_actions)
 
+            # --- Position and heading errors ---
             err_pos_b = self.pos_command_b[:, :2]
             d_err_pos = (err_pos_b - self._last_pos_error_b[:, :2]) / dt
-            d_err_heading = (self.heading_command_b - self._last_heading_error) / dt
 
+            # Ensure heading error is in [-pi, pi] -> rotate shortest way
+            heading_err = wrap_to_pi(self.heading_command_b)
+            d_err_heading = (heading_err - self._last_heading_error) / dt
+
+            # --- PD controller for position ---
             v_b_xy = (self.kp_pos * err_pos_b) + (self.kd_pos * d_err_pos)
-
-            # Clamp separately for x and y
             v_b_xy[:, 0] = v_b_xy[:, 0].clamp(min=linear_x_min, max=linear_x_max)
             v_b_xy[:, 1] = v_b_xy[:, 1].clamp(min=linear_y_min, max=linear_y_max)
 
-            # Prevent oscillations if moving away
+            # Avoid moving away from the goal
             dot_along_error = (err_pos_b[:, 0] * v_b_xy[:, 0]) + (err_pos_b[:, 1] * v_b_xy[:, 1])
             away_mask = dot_along_error < 0
             if away_mask.any():
                 v_b_xy[away_mask] = 0.0
 
-            yaw_rate = (self.kp_yaw * self.heading_command_b) + (self.kd_yaw * d_err_heading)
+            # --- PD controller for heading (shortest rotation) ---
+            yaw_rate = (self.kp_yaw * heading_err) + (self.kd_yaw * d_err_heading)
             yaw_rate = yaw_rate.clamp(min=angular_min, max=angular_max)
 
             nav_new[:, 0:2] = v_b_xy
             nav_new[:, 2] = yaw_rate
 
-            alpha = 0.0
-            self._nav_actions[:] = alpha * nav_old + (1.0 - alpha) * nav_new
-            self._last_pos_error_b[:, :2] = err_pos_b
-            self._last_heading_error[:] = self.heading_command_b
+            # Instant update (no smoothing)
+            self._nav_actions[:] = nav_new
 
-        # Locomotion policy
+            # Store last errors
+            self._last_pos_error_b[:, :2] = err_pos_b
+            self._last_heading_error[:] = heading_err
+
+        # --- Locomotion policy remains unchanged ---
         if self._loco_counter % self.cfg.locomotion_decimation == 0:
             loco_obs = self._loco_obs_manager.compute_group("loco_policy")
             self._loc_actions[:] = self.locomotion_policy(loco_obs)
@@ -242,23 +271,6 @@ class RobotPlannerActionTrainedNavigation(ActionTerm):
             self._loco_counter = 0
         self._loc_action_term.apply_actions()
         self._loco_counter += 1
-
-        # Command reached check
-        locked_mask = ~self._env.is_ready_for_new_command[:, 0]
-        if locked_mask.any():
-            abs_x_err = self.pos_command_b[:, 0].abs()
-            abs_y_err = self.pos_command_b[:, 1].abs()
-            abs_heading_err = self.heading_command_b.abs()
-
-            reached_mask = (abs_x_err <= self._pos_tol) & (abs_y_err <= self._pos_tol) & (abs_heading_err <= self._heading_tol)
-            release_mask = locked_mask & reached_mask
-            if release_mask.any():
-                idxs = release_mask.nonzero(as_tuple=False).squeeze(1)
-                self._env.is_ready_for_new_command[idxs, 0] = True
-                self.pos_command_w[idxs] = self.robot.data.root_pos_w[idxs, :3]
-                self.heading_command_w[idxs] = self.robot.data.heading_w[idxs]
-                self.pos_command_b[idxs] = 0.0
-                self.heading_command_b[idxs] = 0.0
 
     # ---------------------- Debug Visualization ----------------------
     def _set_debug_vis_impl(self, debug_vis: bool):

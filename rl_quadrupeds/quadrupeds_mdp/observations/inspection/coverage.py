@@ -486,8 +486,8 @@ class ObjectInspectionCoverage(ManagerTermBase):
 
         # Dot between robot forward and per-point face normal -> (E, D)
         dot = (fwd.unsqueeze(1) * normals_per_point).sum(-1)
-        ORTHO_THRESHOLD = 0.95
-        # ORTHO_THRESHOLD = 0.
+        # ORTHO_THRESHOLD = 0.95
+        ORTHO_THRESHOLD = 0.
         orientation_mask = dot.abs() >= ORTHO_THRESHOLD   # (E, D)
         orientation_mask = orientation_mask.unsqueeze(1).expand(E, M, D)  # (E, M, D)
 

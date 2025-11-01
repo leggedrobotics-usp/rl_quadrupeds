@@ -40,10 +40,10 @@ class RewardsCfg:
     #     }
     # )
 
-    viewpoint_action_rate_l2 = RewTerm(
-        func=viewpoint_action_rate_l2,
-        weight=-0.01
-    )
+    # viewpoint_action_rate_l2 = RewTerm(
+    #     func=viewpoint_action_rate_l2,
+    #     weight=-0.01
+    # )
 
     # viewpoint_towards_objects = RewTerm(
     #     func=viewpoint_towards_objects,
@@ -84,10 +84,10 @@ class RewardsCfg:
     #     weight=2
     # )
 
-    current_robot_viewpoint_not_visited = RewTerm(
-        func=check_if_current_robot_viewpoint_not_visited,
-        weight=50
-    )
+    # current_robot_viewpoint_not_visited = RewTerm(
+    #     func=check_if_current_robot_viewpoint_not_visited,
+    #     weight=50
+    # )
 
     # inspection_done = RewTerm(
     #     func=is_terminated_term,
@@ -128,7 +128,7 @@ class RewardsCfg:
         weight=-0.1
     )
 
-    viewpoint_action_flip_penalty = RewTerm(
-        func=viewpoint_action_flip_penalty,
-        weight=-1
-    )
+    # viewpoint_action_flip_penalty = RewTerm(
+    #     func=viewpoint_action_flip_penalty,
+    #     weight=-1
+    # )

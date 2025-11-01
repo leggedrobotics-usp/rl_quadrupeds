@@ -298,7 +298,7 @@ class ObservationManagerDebug(ManagerBase):
 
                 print(f"\n--- Observation Term: '{term_name}' ---")
                 print(f"Shape: {buffer_obj.buffer.shape}")
-                print(f"Full Buffer Content:\n{buffer_obj.buffer}")
+                # print(f"Full Buffer Content:\n{buffer_obj.buffer}")
                 print(f"Most Recent Entry:\n{buffer_obj.buffer[:, -1, :]}")
                 print("-" * 60)
 

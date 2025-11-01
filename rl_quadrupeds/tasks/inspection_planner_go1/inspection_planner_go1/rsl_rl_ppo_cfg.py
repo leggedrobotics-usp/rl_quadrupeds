@@ -7,7 +7,7 @@ from isaaclab_rl.rsl_rl import RslRlOnPolicyRunnerCfg, RslRlPpoActorCriticCfg, R
 @configclass
 class Go1InspectionPlannerPPORunnerCfg(RslRlOnPolicyRunnerCfg):
     # num_steps_per_env = 128
-    num_steps_per_env = 64
+    num_steps_per_env = 16
     max_iterations = 100000
     save_interval = 10
     experiment_name = "go1_inspection_planner"
@@ -25,16 +25,16 @@ class Go1InspectionPlannerPPORunnerCfg(RslRlOnPolicyRunnerCfg):
         value_loss_coef=1.0,
         use_clipped_value_loss=True,
         clip_param=0.2,
-        entropy_coef=0.1,
-        num_learning_epochs=16,
-        num_mini_batches=64,
+        entropy_coef=0.3,
+        num_learning_epochs=4,
+        num_mini_batches=16,
         # num_learning_epochs=4,
         # num_mini_batches=16,
         learning_rate=1.0e-3,
         schedule="adaptive",
         gamma=0.99,
         lam=0.95,
-        desired_kl=0.01,
+        desired_kl=0.03,
         max_grad_norm=1.0,
         # symmetry_cfg=RslRlSymmetryCfg(
         #     use_data_augmentation=True,

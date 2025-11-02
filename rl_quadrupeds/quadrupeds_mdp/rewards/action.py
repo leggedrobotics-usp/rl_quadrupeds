@@ -34,4 +34,4 @@ def penalize_raw_action_saturation(
 def action_rate_penalty(env, k: float = 5.0) -> torch.Tensor:
     """Penalty: large changes in actions — returns [-1, 0]."""
     penalty_val = torch.sum(torch.square(env.action_manager.action - env.action_manager.prev_action), dim=1)
-    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+    return torch.exp(-k * penalty_val) - 1

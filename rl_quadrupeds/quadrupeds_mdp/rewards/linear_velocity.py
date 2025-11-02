@@ -121,17 +121,16 @@ def lin_vel_z_penalty(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
     """Penalty: z-axis linear velocity — returns [-1, 0]."""
     asset = env.scene[asset_cfg.name]
     penalty_val = torch.square(asset.data.root_lin_vel_b[:, 2])
-    penalty = -torch.exp(-k * penalty_val) + 1  # shift so 0 = perfect
-    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+    return torch.exp(-k * penalty_val) - 1
 
 def ang_vel_xy_penalty(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
     """Penalty: xy-axis angular velocity — returns [-1, 0]."""
     asset = env.scene[asset_cfg.name]
     penalty_val = torch.sum(torch.square(asset.data.root_ang_vel_b[:, :2]), dim=1)
-    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+    return torch.exp(-k * penalty_val) - 1
     
 def joint_acc_penalty(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
     """Penalty: joint accelerations — returns [-1, 0]."""
     asset = env.scene[asset_cfg.name]
     penalty_val = torch.sum(torch.square(asset.data.joint_acc[:, asset_cfg.joint_ids]), dim=1)
-    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+    return torch.exp(-k * penalty_val) - 1

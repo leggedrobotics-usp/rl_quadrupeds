@@ -64,7 +64,7 @@ class RewardsCfg:
     flat_orientation_bonus = RewTerm(
         func=flat_orientation_bonus,
         weight=0.8,
-        params={"asset_cfg": SceneEntityCfg("robot"), "k": 2.0},
+        params={"asset_cfg": SceneEntityCfg("robot"), "k": 100},
     )
 
     # === Gait bonuses ===
@@ -76,7 +76,7 @@ class RewardsCfg:
             "k": 1.5,
         },
     )
-    trot_gait_negative = RewTerm(
+    trot_gait_penalty = RewTerm(
         func=DiagonalFootTrotNegative,
         weight=0.3,
         params={
@@ -127,12 +127,12 @@ class RewardsCfg:
     )
 
     # === Energy, Motion & Effort ===
-    joint_torques_l2 = RewTerm(
+    joint_torques_penalty = RewTerm(
         func=joint_torques_l2,
         weight=0.4,
         params={"asset_cfg": SceneEntityCfg("robot"), "k": 0.5},
     )
-    track_joint_vel_l2 = RewTerm(
+    track_joint_vel_penalty = RewTerm(
         func=track_joint_vel_l2,
         weight=0.2,
         params={"asset_cfg": SceneEntityCfg("robot"), "k": 0.5},
@@ -191,7 +191,7 @@ class RewardsCfg:
     )
 
     # === Velocity / Slip penalties ===
-    track_feet_slip = RewTerm(
+    feet_slip_penalty = RewTerm(
         func=track_feet_slip,
         weight=0.4,
         params={
@@ -202,3 +202,5 @@ class RewardsCfg:
     )
     lin_vel_z_penalty = RewTerm(func=lin_vel_z_penalty, weight=0.8, params={"asset_cfg": SceneEntityCfg("robot"), "k": 1.5})
     ang_vel_xy_penalty = RewTerm(func=ang_vel_xy_penalty, weight=0.2, params={"asset_cfg": SceneEntityCfg("robot"), "k": 1.5})
+
+    joint_pos_limits_penalty = RewTerm(func=joint_pos_limits_penalty, weight=0.3, params={"asset_cfg": SceneEntityCfg("robot"), "k": 10.})

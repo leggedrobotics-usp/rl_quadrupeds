@@ -169,3 +169,58 @@ class NormalizedRewardManager(RewardManager):
         # print("Running max abs total:", self._running_max_abs_total)
 
         return final_normalized_reward
+
+class WeightedRewardTracker(RewardManager):
+    """Reward manager that tracks raw (unweighted) reward term values before applying weights."""
+
+    def __init__(self, cfg: object, env):
+        """Initialize the reward tracker."""
+        super().__init__(cfg, env)
+        # Buffer to store raw (unweighted) values for each term per environment
+        self._raw_term_values = torch.zeros(
+            (self.num_envs, len(self._term_names)), dtype=torch.float, device=self.device
+        )
+
+    def compute(self, dt: float) -> torch.Tensor:
+        """Computes the weighted reward signal and saves raw term values.
+
+        The raw (unweighted) values of each term are stored in `self._raw_term_values`
+        before multiplying by the term's weight.
+        """
+        # Reset buffers
+        self._reward_buf[:] = 0.0
+        self._raw_term_values[:] = 0.0
+
+        # Iterate over all reward terms
+        for term_idx, (name, term_cfg) in enumerate(zip(self._term_names, self._term_cfgs)):
+            # Skip if weight is zero
+            if term_cfg.weight == 0.0:
+                self._step_reward[:, term_idx] = 0.0
+                self._raw_term_values[:, term_idx] = 0.0
+                continue
+
+            # Compute raw (unweighted) value
+            raw_value = term_cfg.func(self._env, **term_cfg.params)
+
+            # Store raw value before weighting
+            self._raw_term_values[:, term_idx] = raw_value
+
+            # Compute weighted and scaled value
+            weighted_value = raw_value * term_cfg.weight * dt
+
+            # Update total reward and episodic sums
+            self._reward_buf += weighted_value
+            self._episode_sums[name] += weighted_value
+
+            # Store current step weighted reward (unscaled by dt for consistency with parent)
+            self._step_reward[:, term_idx] = weighted_value / dt
+
+        return self._reward_buf
+
+    @property
+    def raw_term_values(self) -> torch.Tensor:
+        """Returns the most recent raw (unweighted) reward term values.
+
+        Shape: (num_envs, num_terms)
+        """
+        return self._raw_term_values

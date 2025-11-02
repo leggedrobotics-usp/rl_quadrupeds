@@ -189,12 +189,12 @@ def track_joint_positions_bonus(env, asset_cfg=None, k: float = 5.0) -> torch.Te
     return torch.clip(bonus, 0.0, 1.0)
 
 def penalize_hip_movement(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
-    """Penalty: hip movement away from default — returns [-1, 0]."""
+    """Penalty: hip movement away from default — returns in [-1, 0]."""
     asset = env.scene[asset_cfg.name]
     joint_pos = asset.data.joint_pos[:, asset_cfg.joint_ids]
     joint_default_pos = asset.data.default_joint_pos[:, asset_cfg.joint_ids]
     penalty_val = torch.sum(torch.square(joint_pos - joint_default_pos), dim=1)
-    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+    return torch.exp(-k * penalty_val) - 1  # 0 (perfect) → -1 (worst)
     
 def track_footswing_height(
     env,
@@ -668,7 +668,7 @@ def joint_pos_limits_penalty(env, asset_cfg=None, k: float = 5.0) -> torch.Tenso
         asset.data.joint_pos[:, asset_cfg.joint_ids] - asset.data.soft_joint_pos_limits[:, asset_cfg.joint_ids, 1]
     ).clip(min=0.0)
     penalty_val = torch.sum(out_of_limits, dim=1)
-    return torch.clip(-torch.exp(-k * penalty_val) + 1, -1.0, 0.0)
+    return torch.exp(-k * penalty_val) - 1
 
 def flat_orientation_bonus(env, asset_cfg=None, k: float = 5.0) -> torch.Tensor:
     """Bonus: keep base orientation flat — returns [0, 1]."""
